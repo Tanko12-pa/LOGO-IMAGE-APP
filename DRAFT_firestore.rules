@@ -1,0 +1,143 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'akindewum@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Entity Validators
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'name', 'plan', 'creditsRemaining']) &&
+        data.keys().hasOnly(['email', 'name', 'avatarUrl', 'plan', 'creditsRemaining', 'creditsUsed', 'createdAt', 'updatedAt']) &&
+        data.email is string && data.email.size() <= 256 &&
+        data.name is string && data.name.size() <= 128 &&
+        data.plan in ['FREE', 'PRO', 'BUSINESS', 'TRIAL_7_DAYS', 'MONTHLY_19_99', 'YEARLY_199_99'] &&
+        data.creditsRemaining is number &&
+        (!('creditsUsed' in data) || data.creditsUsed is number) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1024));
+    }
+
+    function isValidDesign(data, expectedUserId) {
+      return data.keys().hasAll(['userId', 'title', 'type', 'prompt', 'url']) &&
+        data.keys().hasOnly(['userId', 'title', 'type', 'prompt', 'enhancedPrompt', 'url', 'svgCode', 'aspectRatio', 'dimensions', 'palette', 'tags', 'isFavorite', 'projectId', 'createdAt', 'updatedAt']) &&
+        data.userId == expectedUserId &&
+        data.title is string && data.title.size() <= 160 &&
+        data.type in ['logo', 'image', 'brand_kit', 'social', 'product', 'banner', 'video'] &&
+        data.prompt is string && data.prompt.size() <= 2000 &&
+        data.url is string && data.url.size() <= 2048 &&
+        (!('enhancedPrompt' in data) || (data.enhancedPrompt is string && data.enhancedPrompt.size() <= 3000)) &&
+        (!('svgCode' in data) || (data.svgCode is string && data.svgCode.size() <= 500000)) &&
+        (!('aspectRatio' in data) || (data.aspectRatio is string && data.aspectRatio.size() <= 32)) &&
+        (!('isFavorite' in data) || data.isFavorite is bool) &&
+        (!('projectId' in data) || (data.projectId is string && data.projectId.size() <= 128));
+    }
+
+    function isValidProject(data, expectedUserId) {
+      return data.keys().hasAll(['userId', 'name']) &&
+        data.keys().hasOnly(['userId', 'name', 'description', 'brandKitId', 'itemsCount', 'isArchived', 'isFavorite', 'createdAt', 'updatedAt']) &&
+        data.userId == expectedUserId &&
+        data.name is string && data.name.size() <= 120 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+        (!('brandKitId' in data) || (data.brandKitId is string && data.brandKitId.size() <= 128)) &&
+        (!('itemsCount' in data) || data.itemsCount is number) &&
+        (!('isArchived' in data) || data.isArchived is bool) &&
+        (!('isFavorite' in data) || data.isFavorite is bool);
+    }
+
+    function isValidBrandKit(data, expectedUserId) {
+      return data.keys().hasAll(['userId', 'name', 'industry']) &&
+        data.keys().hasOnly(['userId', 'name', 'industry', 'tagline', 'description', 'mission', 'palette', 'typography', 'primaryLogoSvg', 'secondaryLogoSvg', 'isDefault', 'createdAt', 'updatedAt']) &&
+        data.userId == expectedUserId &&
+        data.name is string && data.name.size() <= 120 &&
+        data.industry is string && data.industry.size() <= 120 &&
+        (!('tagline' in data) || (data.tagline is string && data.tagline.size() <= 200)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 800)) &&
+        (!('isDefault' in data) || data.isDefault is bool);
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidId(userId) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatarUrl', 'plan', 'creditsRemaining', 'creditsUsed', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+
+      // Designs Subcollection
+      match /designs/{designId} {
+        allow get: if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidId(designId) && isValidDesign(incoming(), userId);
+        allow update: if (isOwner(userId) || isAdmin()) && isValidId(designId) && isValidDesign(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'type', 'prompt', 'enhancedPrompt', 'url', 'svgCode', 'aspectRatio', 'palette', 'tags', 'isFavorite', 'projectId', 'updatedAt']);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Projects Subcollection
+      match /projects/{projectId} {
+        allow get: if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidId(projectId) && isValidProject(incoming(), userId);
+        allow update: if (isOwner(userId) || isAdmin()) && isValidId(projectId) && isValidProject(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'description', 'brandKitId', 'itemsCount', 'isArchived', 'isFavorite', 'updatedAt']);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+
+      // Brand Kits Subcollection
+      match /brandKits/{brandKitId} {
+        allow get: if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidId(brandKitId) && isValidBrandKit(incoming(), userId);
+        allow update: if (isOwner(userId) || isAdmin()) && isValidId(brandKitId) && isValidBrandKit(incoming(), userId) &&
+          incoming().userId == existing().userId &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'industry', 'tagline', 'description', 'mission', 'palette', 'typography', 'primaryLogoSvg', 'secondaryLogoSvg', 'isDefault', 'updatedAt']);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // Admins Root Collection
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}

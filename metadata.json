@@ -1,0 +1,6 @@
+{
+  "name": "LOGO & IMAGE GENERATOR",
+  "description": "AI-Powered Logo & Image Creation for Modern Brands. Dual-pipeline logo & image generation, Computer Vision visual analysis & object detection, A2A Judge agent, Brand Studio, and biometric security.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
