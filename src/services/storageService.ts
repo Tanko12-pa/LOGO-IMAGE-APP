@@ -475,9 +475,54 @@ class StorageService {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_BRAND_KIT, id);
   }
 
+  // Account Trial Registry (persists trial dates per registered personal email across sign-ins/outs)
+  getAccountRegistry(): Record<string, { trialStartedAt: string; trialEndsAt: string; subscriptionStatus: string; plan: string }> {
+    try {
+      const raw = localStorage.getItem('vision_genai_account_trials_registry');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveAccountRecord(email: string, record: { trialStartedAt: string; trialEndsAt: string; subscriptionStatus: string; plan: string }): void {
+    if (!email) return;
+    const registry = this.getAccountRegistry();
+    registry[email.toLowerCase()] = record;
+    localStorage.setItem('vision_genai_account_trials_registry', JSON.stringify(registry));
+  }
+
+  getAccountRecord(email: string) {
+    if (!email) return null;
+    const registry = this.getAccountRegistry();
+    return registry[email.toLowerCase()] || null;
+  }
+
   // User Profile
   getUserProfile(): UserProfile {
     const profile = this.getItem<UserProfile>(STORAGE_KEYS.USER_PROFILE, INITIAL_USER_PROFILE);
+    const emailKey = (profile.email || 'user@logoimage.ai').toLowerCase();
+    const existingRecord = this.getAccountRecord(emailKey);
+
+    if (existingRecord) {
+      // Re-use user's persistent trial record so it is never reset by signing out/signing in
+      profile.trialStartedAt = existingRecord.trialStartedAt;
+      profile.trialEndsAt = existingRecord.trialEndsAt;
+      if (existingRecord.subscriptionStatus === 'active') {
+        profile.subscriptionStatus = 'active';
+        profile.plan = (existingRecord.plan as any) || profile.plan;
+      }
+    } else {
+      // Register new user's 7-day trial in account registry
+      const now = Date.now();
+      const trialEnds = profile.trialEndsAt || new Date(now + 7 * 86400000).toISOString();
+      this.saveAccountRecord(emailKey, {
+        trialStartedAt: profile.trialStartedAt || new Date(now).toISOString(),
+        trialEndsAt: trialEnds,
+        subscriptionStatus: (profile.subscriptionStatus as any) || 'trial',
+        plan: profile.plan || 'TRIAL_7_DAYS',
+      });
+    }
     
     // Auto-calculate trial status & expiration
     if (profile.plan === 'TRIAL_7_DAYS' || profile.subscriptionStatus === 'trial') {
@@ -491,6 +536,11 @@ class StorageService {
         if (profile.subscription) {
           profile.subscription.status = 'expired';
           profile.subscription.daysRemaining = 0;
+        }
+        const rec = this.getAccountRecord(emailKey);
+        if (rec && rec.subscriptionStatus !== 'active') {
+          rec.subscriptionStatus = 'expired';
+          this.saveAccountRecord(emailKey, rec);
         }
       } else {
         profile.subscriptionStatus = 'trial';
@@ -636,6 +686,16 @@ class StorageService {
 
   saveUserProfile(profile: UserProfile): void {
     this.setItem(STORAGE_KEYS.USER_PROFILE, profile);
+    if (profile.email) {
+      const emailKey = profile.email.toLowerCase();
+      const existing = this.getAccountRecord(emailKey);
+      this.saveAccountRecord(emailKey, {
+        trialStartedAt: profile.trialStartedAt || existing?.trialStartedAt || new Date().toISOString(),
+        trialEndsAt: profile.trialEndsAt || existing?.trialEndsAt || new Date(Date.now() + 7 * 86400000).toISOString(),
+        subscriptionStatus: (profile.subscriptionStatus as any) || existing?.subscriptionStatus || 'trial',
+        plan: profile.plan || existing?.plan || 'TRIAL_7_DAYS',
+      });
+    }
   }
 
   deductCredits(amount = 1): number {

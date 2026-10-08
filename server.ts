@@ -32,14 +32,8 @@ const ai = apiKey
     })
   : null;
 
-console.log(`[Server] Gemini API Key present: ${Boolean(apiKey)}`);
-console.log(`[Server] PayPal API URL: ${process.env.PAYPAL_API_URL || 'https://api-m.paypal.com'}`);
-console.log(`[Server] PayPal Client ID present: ${Boolean(process.env.PAYPAL_CLIENT_ID)}`);
-console.log(`[Server] PayPal Client Secret present: ${Boolean(process.env.PAYPAL_CLIENT_SECRET)}`);
-console.log(`[Server] PayPal Monthly Plan ID: ${process.env.PAYPAL_PLAN_ID_MONTHLY || '(not set)'}`);
-console.log(`[Server] PayPal Yearly Plan ID: ${process.env.PAYPAL_PLAN_ID_YEARLY || '(not set)'}`);
-console.log(`[Server] PayPal Product ID: ${process.env.PAYPAL_PRODUCT_ID || '(not set)'}`);
-
+console.log(`[Server] Gemini API Key configured: ${Boolean(apiKey)}`);
+console.log(`[Server] PayPal Payment Gateway: Initialized server-side (credentials protected)`);
 
 // Health check
 app.get('/api/health', (_req: Request, res: Response) => {
@@ -1614,19 +1608,13 @@ async function getPayPalAccessToken(): Promise<string | null> {
 app.get('/api/paypal/config', (_req: Request, res: Response) => {
   res.json({
     configured: Boolean(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET),
-    apiUrl: PAYPAL_API_URL,
-    clientId: PAYPAL_CLIENT_ID,
-    hasClientSecret: Boolean(PAYPAL_CLIENT_SECRET),
-    planIdMonthly: PAYPAL_PLAN_ID_MONTHLY,
-    planIdYearly: PAYPAL_PLAN_ID_YEARLY,
-    productId: PAYPAL_PRODUCT_ID,
+    gateway: 'PayPal Subscriptions API',
     plans: {
       MONTHLY_19_99: {
         id: 'MONTHLY_19_99',
         name: 'Monthly Pro',
         price: 19.99,
         interval: 'MONTH',
-        paypalPlanId: PAYPAL_PLAN_ID_MONTHLY || null,
         credits: 600,
       },
       YEARLY_199_99: {
@@ -1634,7 +1622,6 @@ app.get('/api/paypal/config', (_req: Request, res: Response) => {
         name: 'Annual Enterprise Pro',
         price: 199.99,
         interval: 'YEAR',
-        paypalPlanId: PAYPAL_PLAN_ID_YEARLY || null,
         credits: 7500,
       },
     },
@@ -1680,8 +1667,6 @@ app.post('/api/paypal/create-subscription', async (req: Request, res: Response) 
             subscriptionId: subData.id,
             status: subData.status,
             approveUrl: approveLink,
-            planId: targetPlanId,
-            productId: PAYPAL_PRODUCT_ID,
             planType,
             isLive: true,
           });
@@ -1699,8 +1684,6 @@ app.post('/api/paypal/create-subscription', async (req: Request, res: Response) 
       subscriptionId: mockSubId,
       status: 'APPROVAL_PENDING',
       approveUrl: `https://www.paypal.com/checkoutnow?token=${mockSubId}`,
-      planId: targetPlanId || `PLAN-${planType}`,
-      productId: PAYPAL_PRODUCT_ID,
       planType,
       amount,
       planName,
@@ -1960,9 +1943,6 @@ app.post('/api/billing/subscription', async (req: Request, res: Response) => {
       creditsGranted,
       daysRemaining: planType === 'TRIAL_7_DAYS' ? 7 : planType === 'MONTHLY_19_99' ? 30 : 365,
       paypalConfig: {
-        apiUrl: PAYPAL_API_URL,
-        productId: PAYPAL_PRODUCT_ID,
-        planId: planType === 'MONTHLY_19_99' ? PAYPAL_PLAN_ID_MONTHLY : planType === 'YEARLY_199_99' ? PAYPAL_PLAN_ID_YEARLY : undefined,
         configured: Boolean(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET),
       },
       message:

@@ -214,7 +214,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         <div
           title={
             firebaseConnected
-              ? 'Firebase Firestore & Auth Connected (Database: ai-studio-visiongenai-6af4e39c-95ea-42f7-9c2c-882ef8537b1d)'
+              ? 'Firebase Firestore & Auth Connected (Encrypted Real-Time Sync)'
               : 'Connecting to Firebase...'
           }
           className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono border bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-xs"

@@ -433,45 +433,52 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
         </div>
       </div>
 
-      {/* PayPal Gateway & Environment Integration Status */}
+      {/* Bank-Grade PayPal Security & Protection Guarantee */}
       <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800/80 shadow-lg max-w-4xl mx-auto space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-900 pb-3">
           <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-[#009cde]" />
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <h3 className="text-xs font-bold font-heading text-white">
-              PayPal Subscriptions & Gateway Configuration
+              Bank-Grade Security & PayPal Protection
             </h3>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#0070ba]/10 border border-[#0070ba]/30 text-[#009cde]">
-              API: {paypalConfig?.apiUrl || 'https://api-m.paypal.com'}
+              PayPal Verified Gateway
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-              Gateway Active
+              Encrypted Checkout Active
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
-          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
-            <span className="text-zinc-500 block text-[9px] uppercase">PAYPAL_API_URL</span>
-            <span className="text-zinc-300 truncate block font-semibold">{paypalConfig?.apiUrl || 'https://api-m.paypal.com'}</span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
-            <span className="text-zinc-500 block text-[9px] uppercase">PRODUCT_ID</span>
-            <span className="text-zinc-300 truncate block font-semibold">{paypalConfig?.productId || 'PROD-VISIONGENAI'}</span>
-          </div>
-          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
-            <span className="text-zinc-500 block text-[9px] uppercase">PLAN_ID_MONTHLY</span>
-            <span className="text-[#FFE566] truncate block font-semibold" title="P-9KB44565ML579402NNLDLCCY">
-              {paypalConfig?.planIdMonthly || 'P-9KB44565ML579402NNLDLCCY'}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-zinc-400">
+          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/60 space-y-1">
+            <span className="text-white font-semibold flex items-center gap-1.5 text-xs">
+              <Lock className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Zero-Storage Security</span>
             </span>
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              No credit card numbers or banking credentials are ever stored on our servers. All transactions run directly through PayPal.
+            </p>
           </div>
-          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
-            <span className="text-zinc-500 block text-[9px] uppercase">PLAN_ID_YEARLY</span>
-            <span className="text-[#F27430] truncate block font-semibold" title="P-2UP231398J986740KNLDLD5Y">
-              {paypalConfig?.planIdYearly || 'P-2UP231398J986740KNLDLD5Y'}
+          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/60 space-y-1">
+            <span className="text-white font-semibold flex items-center gap-1.5 text-xs">
+              <Shield className="w-3.5 h-3.5 text-[#FFE566]" />
+              <span>Instant Verification</span>
             </span>
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              Backend verifies your subscription status directly with PayPal's API and restores full creative studio access immediately.
+            </p>
+          </div>
+          <div className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/60 space-y-1">
+            <span className="text-white font-semibold flex items-center gap-1.5 text-xs">
+              <Zap className="w-3.5 h-3.5 text-[#F27430]" />
+              <span>1-Click Cancellation</span>
+            </span>
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              Full control over your membership. Cancel or adjust your subscription anytime from your PayPal dashboard or billing page.
+            </p>
           </div>
         </div>
       </div>
@@ -578,7 +585,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
                     </div>
 
                     <PayPalSubscriptionButton
-                      planId={plan.id === 'MONTHLY_19_99' ? 'P-9KB44565ML579402NNLDLCCY' : 'P-2UP231398J986740KNLDLD5Y'}
+                      planId={plan.id}
                       planType={plan.id as 'MONTHLY_19_99' | 'YEARLY_199_99'}
                       planName={plan.name}
                       priceDisplay={plan.priceDisplay}

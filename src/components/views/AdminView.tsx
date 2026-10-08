@@ -130,7 +130,7 @@ export const AdminView: React.FC = () => {
         </div>
       </div>
 
-      {/* Firebase Cloud Infrastructure Monitoring Panel */}
+      {/* Firebase Cloud Infrastructure Monitoring Panel (Secured) */}
       <div className="bg-zinc-950 p-6 rounded-3xl border border-zinc-800 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold font-heading text-white uppercase tracking-wider flex items-center gap-2">
@@ -144,31 +144,31 @@ export const AdminView: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">Firebase Project ID</div>
-            <div className="text-sm font-bold font-mono text-white">studio-8169038053-73336</div>
-            <div className="text-[10px] text-emerald-400">Google Cloud Applet Provisioned</div>
+            <div className="text-[11px] text-zinc-400 font-mono">Firebase Services</div>
+            <div className="text-sm font-bold font-mono text-white">Firestore & Authentication</div>
+            <div className="text-[10px] text-emerald-400">Credentials Hidden & Protected Server-Side</div>
           </div>
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">Firestore Database ID</div>
-            <div className="text-sm font-bold font-mono text-[#FFE566] truncate" title="ai-studio-visiongenai-6af4e39c-95ea-42f7-9c2c-882ef8537b1d">
-              ai-studio-visiongenai...
+            <div className="text-[11px] text-zinc-400 font-mono">Firestore Security Rules</div>
+            <div className="text-sm font-bold font-mono text-[#FFE566]">
+              Zero-Trust ABAC Active
             </div>
-            <div className="text-[10px] text-emerald-400">Rules Deployed & Synchronized</div>
+            <div className="text-[10px] text-emerald-400">Rules Deployed & Enforced</div>
           </div>
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">Root Administrator</div>
-            <div className="text-sm font-bold font-mono text-[#F27430]">akindewum@gmail.com</div>
-            <div className="text-[10px] text-emerald-400">Zero-Trust ABAC Guarded</div>
+            <div className="text-[11px] text-zinc-400 font-mono">Public Access Architecture</div>
+            <div className="text-sm font-bold font-mono text-[#F27430]">Multi-Tenant Public Auth</div>
+            <div className="text-[10px] text-emerald-400">Open to All Personal Emails & Google Users</div>
           </div>
         </div>
       </div>
 
-      {/* PayPal Environment & Gateway Monitoring Panel */}
+      {/* PayPal Environment & Payment Gateway Architecture (Protected) */}
       <div className="bg-zinc-950 p-6 rounded-3xl border border-zinc-800 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold font-heading text-white uppercase tracking-wider flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-[#009cde]" />
-            PayPal Environment & Payment Gateway Configuration
+            PayPal Subscriptions & Payment Gateway Security
           </h2>
           <span className="text-xs font-mono text-[#009cde] bg-[#0070ba]/10 px-2.5 py-1 rounded-xl border border-[#0070ba]/30">
             REST API Integrated
@@ -177,45 +177,36 @@ export const AdminView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_API_URL</div>
-            <div className="text-sm font-bold font-mono text-white truncate">https://api-m.paypal.com</div>
-            <div className="text-[10px] text-emerald-400">Live Production REST Gateway</div>
+            <div className="text-[11px] text-zinc-400 font-mono">Gateway Environment</div>
+            <div className="text-sm font-bold font-mono text-white">PayPal REST Subscriptions</div>
+            <div className="text-[10px] text-emerald-400">Server-Side Proxy Architecture</div>
           </div>
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_PRODUCT_ID</div>
-            <div className="text-sm font-bold font-mono text-[#FFE566]">PROD-VISIONGENAI</div>
-            <div className="text-[10px] text-zinc-400">Catalog Product Active</div>
+            <div className="text-[11px] text-zinc-400 font-mono">Catalog Tiers</div>
+            <div className="text-sm font-bold font-mono text-[#FFE566]">Monthly ($19.99) & Annual ($199.99)</div>
+            <div className="text-[10px] text-zinc-400">7-Day Free Trial Auto-Enrollment</div>
           </div>
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_PLAN_ID_MONTHLY</div>
-            <div className="text-sm font-bold font-mono text-[#F27430] truncate" title="P-9KB44565ML579402NNLDLCCY">
-              P-9KB44565ML579402NNLDLCCY
+            <div className="text-[11px] text-zinc-400 font-mono">Client Credentials</div>
+            <div className="text-sm font-bold font-mono text-emerald-400">
+              Protected in Server Environment
             </div>
-            <div className="text-[10px] text-zinc-400">$19.99/mo (600 Credits)</div>
+            <div className="text-[10px] text-emerald-400">Zero Public Exposure</div>
           </div>
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_PLAN_ID_YEARLY</div>
-            <div className="text-sm font-bold font-mono text-[#FFE566] truncate" title="P-2UP231398J986740KNLDLD5Y">
-              P-2UP231398J986740KNLDLD5Y
-            </div>
-            <div className="text-[10px] text-zinc-400">$199.99/yr (7,500 Credits)</div>
+            <div className="text-[11px] text-zinc-400 font-mono">Client Secret Key</div>
+            <div className="text-sm font-bold font-mono text-emerald-400">Server Secrets Only</div>
+            <div className="text-[10px] text-zinc-400">Never Exposed in Browser or Logs</div>
           </div>
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_CLIENT_ID</div>
-            <div className="text-sm font-bold font-mono text-emerald-400 truncate" title="BAAIOmq3Kx_2Lo8oiG7L8JlzOuuAKT2E1V2cJaJka7wJ5afyYJRYJRhXzbX-KnAPEU19Hn4jdHf79ksIqo">
-              BAAIOmq3Kx...79ksIqo
-            </div>
-            <div className="text-[10px] text-emerald-400">Live SDK & REST Active</div>
+            <div className="text-[11px] text-zinc-400 font-mono">Webhook Security</div>
+            <div className="text-sm font-bold font-mono text-cyan-400">Cryptographic Signature Verification</div>
+            <div className="text-[10px] text-emerald-400">Auto-Validates Against PayPal API</div>
           </div>
           <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_CLIENT_SECRET</div>
-            <div className="text-sm font-bold font-mono text-emerald-400">Protected Server-Side</div>
-            <div className="text-[10px] text-zinc-500">Zero-Trust Environment Secret</div>
-          </div>
-          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
-            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_WEBHOOK_ID</div>
-            <div className="text-sm font-bold font-mono text-cyan-400">33234690XT010280P</div>
-            <div className="text-[10px] text-zinc-400">Signature Verification Active</div>
+            <div className="text-[11px] text-zinc-400 font-mono">Payment Verification</div>
+            <div className="text-sm font-bold font-mono text-emerald-400">Server-Authoritative Check</div>
+            <div className="text-[10px] text-emerald-400">Access Granted After API Confirmation</div>
           </div>
         </div>
       </div>

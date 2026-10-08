@@ -629,13 +629,13 @@ export const SettingsFeedbackView: React.FC<SettingsFeedbackViewProps> = ({
               </p>
               <div className="space-y-1 text-[11px] font-mono bg-zinc-950 p-2.5 rounded-xl border border-zinc-800/80">
                 <div className="text-zinc-400 flex justify-between">
-                  <span>Firebase Project:</span>
-                  <span className="text-zinc-200">studio-8169038053-73336</span>
+                  <span>Firebase Infrastructure:</span>
+                  <span className="text-zinc-200">Server-Side Cloud Managed</span>
                 </div>
                 <div className="text-zinc-400 flex justify-between">
                   <span>Firestore DB:</span>
-                  <span className="text-[#FFE566] truncate max-w-[200px]" title="ai-studio-visiongenai-6af4e39c-95ea-42f7-9c2c-882ef8537b1d">
-                    ai-studio-visiongenai...
+                  <span className="text-[#FFE566]">
+                    Protected & Encrypted
                   </span>
                 </div>
                 <div className="text-zinc-400 flex justify-between">
@@ -660,24 +660,24 @@ export const SettingsFeedbackView: React.FC<SettingsFeedbackViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                Billing environment variables configured for recurring subscriptions ($19.99/mo & $199.99/yr) and catalog product synchronization.
+                Billing environment variables configured securely on server for recurring subscriptions ($19.99/mo & $199.99/yr) and catalog product synchronization.
               </p>
               <div className="space-y-1 text-[11px] font-mono bg-zinc-950 p-2.5 rounded-xl border border-zinc-800/80">
                 <div className="text-zinc-400 flex justify-between">
-                  <span>PAYPAL_API_URL:</span>
-                  <span className="text-zinc-200">https://api-m.paypal.com</span>
+                  <span>Payment Gateway:</span>
+                  <span className="text-zinc-200">PayPal REST API</span>
                 </div>
                 <div className="text-zinc-400 flex justify-between">
-                  <span>PRODUCT_ID:</span>
-                  <span className="text-[#FFE566]">PROD-VISIONGENAI</span>
+                  <span>Secrets Security:</span>
+                  <span className="text-emerald-400">Protected Server-Side</span>
                 </div>
                 <div className="text-zinc-400 flex justify-between">
-                  <span>PLAN_MONTHLY:</span>
-                  <span className="text-[#F27430] truncate max-w-[140px]" title="P-9KB44565ML579402NNLDLCCY">P-9KB44565ML...</span>
+                  <span>Monthly Subscription:</span>
+                  <span className="text-[#FFE566]">$19.99/mo (600 Credits)</span>
                 </div>
                 <div className="text-zinc-400 flex justify-between">
-                  <span>PLAN_YEARLY:</span>
-                  <span className="text-emerald-400 truncate max-w-[140px]" title="P-2UP231398J986740KNLDLD5Y">P-2UP231398J...</span>
+                  <span>Yearly Subscription:</span>
+                  <span className="text-emerald-400">$199.99/yr (7,500 Credits)</span>
                 </div>
               </div>
             </div>

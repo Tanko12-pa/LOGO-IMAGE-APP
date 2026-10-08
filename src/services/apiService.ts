@@ -559,11 +559,7 @@ export const apiService = {
       console.warn('Falling back to local PayPal config:', err);
       return {
         configured: false,
-        apiUrl: 'https://api-m.paypal.com',
-        clientId: '',
-        planIdMonthly: '',
-        planIdYearly: '',
-        productId: '',
+        gateway: 'PayPal Subscriptions API',
         plans: {
           MONTHLY_19_99: { id: 'MONTHLY_19_99', name: 'Monthly Pro', price: 19.99, credits: 600 },
           YEARLY_199_99: { id: 'YEARLY_199_99', name: 'Annual Enterprise Pro', price: 199.99, credits: 7500 },
