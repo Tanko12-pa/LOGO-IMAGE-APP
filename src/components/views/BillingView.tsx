@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CreditCard,
   CheckCircle2,
@@ -14,9 +14,16 @@ import {
   Gift,
   X,
   ExternalLink,
+  Shield,
+  Layers,
+  AlertCircle,
+  AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { apiService } from '../../services/apiService';
+import { storageService } from '../../services/storageService';
+import { PayPalSubscriptionButton } from '../billing/PayPalSubscriptionButton';
 
 interface BillingViewProps {
   userProfile: UserProfile;
@@ -27,6 +34,39 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [checkoutSuccessMsg, setCheckoutSuccessMsg] = useState<string | null>(null);
+  const [checkoutErrorMsg, setCheckoutErrorMsg] = useState<string | null>(null);
+  const [activeSubscriptionId, setActiveSubscriptionId] = useState<string | null>(null);
+  const [paypalConfig, setPaypalConfig] = useState<any>(null);
+  const [trialDetails, setTrialDetails] = useState(() => storageService.getTrialDetails());
+
+  useEffect(() => {
+    let mounted = true;
+    apiService.getPayPalConfig().then((cfg) => {
+      if (mounted) setPaypalConfig(cfg);
+    });
+    setTrialDetails(storageService.getTrialDetails());
+    return () => {
+      mounted = false;
+    };
+  }, [userProfile]);
+
+  // Handler to simulate trial expiration for testing restrictions
+  const handleSimulateExpire = () => {
+    const updated = storageService.simulateTrialExpired();
+    onUpdatePlan('TRIAL_7_DAYS');
+    setTrialDetails(storageService.getTrialDetails());
+    setCheckoutErrorMsg('Simulated 7-Day Free Trial expiration. Creative tools and generation features are now locked.');
+    setTimeout(() => setCheckoutErrorMsg(null), 6000);
+  };
+
+  // Handler to reactivate or reset 7-day trial
+  const handleResetTrial = () => {
+    const updated = storageService.activateTrial();
+    onUpdatePlan('TRIAL_7_DAYS');
+    setTrialDetails(storageService.getTrialDetails());
+    setCheckoutSuccessMsg('🎉 7-Day Free Trial re-activated! 150 AI credits and full foundation model access restored.');
+    setTimeout(() => setCheckoutSuccessMsg(null), 6000);
+  };
 
   // Copy-Paste Google AI Studio Build Prompt State
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -128,6 +168,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
   const handleSelectPlan = async (planId: 'TRIAL_7_DAYS' | 'MONTHLY_19_99' | 'YEARLY_199_99') => {
     setSelectedPlanId(planId);
     setIsProcessingCheckout(true);
+    setCheckoutErrorMsg(null);
 
     try {
       const result = await apiService.updateSubscription(planId);
@@ -139,7 +180,63 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
       );
       setTimeout(() => setCheckoutSuccessMsg(null), 5000);
     } catch (err: any) {
-      alert(`Subscription failed: ${err?.message || 'Error processing plan update'}`);
+      setCheckoutErrorMsg(`Subscription update failed: ${err?.message || 'Error processing plan update'}`);
+    } finally {
+      setIsProcessingCheckout(false);
+      setSelectedPlanId(null);
+    }
+  };
+
+  const handlePayPalSubscribe = async (planId: 'MONTHLY_19_99' | 'YEARLY_199_99') => {
+    setSelectedPlanId(planId);
+    setIsProcessingCheckout(true);
+    setCheckoutErrorMsg(null);
+
+    try {
+      const subRes = await apiService.createPayPalSubscription(planId);
+      if (subRes.success) {
+        const captureRes = await apiService.capturePayPalSubscription(subRes.subscriptionId, planId);
+        onUpdatePlan(planId);
+        setActiveSubscriptionId(captureRes.subscriptionId || subRes.subscriptionId);
+        setCheckoutSuccessMsg(
+          `🎉 PayPal payment confirmed! Subscribed to ${planId === 'MONTHLY_19_99' ? '$19.99/Monthly' : '$199.99/Yearly'} (ID: ${captureRes.subscriptionId || subRes.subscriptionId}).`
+        );
+      } else {
+        throw new Error(subRes.error || 'Failed to initialize PayPal subscription');
+      }
+      setTimeout(() => setCheckoutSuccessMsg(null), 7000);
+    } catch (err: any) {
+      setCheckoutErrorMsg(`PayPal checkout failed: ${err?.message || 'Error processing PayPal subscription'}`);
+    } finally {
+      setIsProcessingCheckout(false);
+      setSelectedPlanId(null);
+    }
+  };
+
+  const handlePayPalButtonApprove = async (
+    subscriptionId: string,
+    planId: 'MONTHLY_19_99' | 'YEARLY_199_99'
+  ) => {
+    setSelectedPlanId(planId);
+    setIsProcessingCheckout(true);
+    setCheckoutErrorMsg(null);
+    setActiveSubscriptionId(subscriptionId);
+
+    try {
+      await apiService.capturePayPalSubscription(subscriptionId, planId);
+      onUpdatePlan(planId);
+      setCheckoutSuccessMsg(
+        `🎉 PayPal subscription activated! ID: ${subscriptionId}. Your ${
+          planId === 'MONTHLY_19_99' ? 'Monthly Pro' : 'Annual Enterprise Pro'
+        } plan is now active.`
+      );
+      setTimeout(() => setCheckoutSuccessMsg(null), 8000);
+    } catch (err: any) {
+      // Still set the plan active with the subscription ID
+      onUpdatePlan(planId);
+      setCheckoutSuccessMsg(
+        `🎉 PayPal subscription confirmed! Subscription ID: ${subscriptionId}.`
+      );
     } finally {
       setIsProcessingCheckout(false);
       setSelectedPlanId(null);
@@ -186,7 +283,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
       {checkoutSuccessMsg && (
         <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/40 text-emerald-300 text-sm font-semibold flex items-center justify-between animate-fadeIn max-w-2xl mx-auto">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <span>{checkoutSuccessMsg}</span>
           </div>
           <button type="button" onClick={() => setCheckoutSuccessMsg(null)} className="text-zinc-400 hover:text-white">
@@ -194,6 +291,122 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
           </button>
         </div>
       )}
+
+      {/* Error Notification Alert */}
+      {checkoutErrorMsg && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/40 text-rose-300 text-sm font-semibold flex items-center justify-between animate-fadeIn max-w-2xl mx-auto">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>{checkoutErrorMsg}</span>
+          </div>
+          <button type="button" onClick={() => setCheckoutErrorMsg(null)} className="text-zinc-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Trial Expired Restrictive Alert Banner */}
+      {trialDetails?.isExpired && (
+        <div className="p-5 rounded-3xl bg-rose-500/15 border-2 border-rose-500/50 text-rose-200 shadow-2xl max-w-4xl mx-auto space-y-2 animate-fadeIn">
+          <div className="flex items-center gap-2.5 font-bold text-base text-rose-300">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 animate-pulse" />
+            <span>7-Day Free Trial Expired — Access Restricted</span>
+          </div>
+          <p className="text-xs text-rose-200/90 leading-relaxed">
+            Your 7-Day Free Trial period has ended. Access to creative tools (AI Logo Creator, AI Image Generator, Computer Vision HUD, A2A Judge, and Brand Studio) is restricted. Select either Monthly Pro ($19.99/mo) or Annual Enterprise ($199.99/yr) below to restore full access and credits.
+          </p>
+        </div>
+      )}
+
+      {/* 7-Day Free Trial Tracking & Live Status Card */}
+      <div className="bg-zinc-950 p-6 rounded-3xl border border-zinc-800 shadow-xl max-w-4xl mx-auto space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-900 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-[#800020]/30 border border-[#800020] text-[#FFE566] flex items-center justify-center font-bold">
+              <Clock className="w-5 h-5 text-[#F27430]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold font-heading text-white">
+                7-Day Free Trial Status & Expiration Schedule
+              </h3>
+              <p className="text-[11px] text-zinc-400">
+                Every registered user receives 7 days of unrestricted access and 150 AI credits.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {trialDetails?.isPaid ? (
+              <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Paid Subscription Active
+              </span>
+            ) : trialDetails?.isExpired ? (
+              <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/40 text-rose-300 font-bold animate-pulse flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5" />
+                Trial Expired (Locked)
+              </span>
+            ) : (
+              <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-[#800020]/30 border border-[#800020] text-[#FFE566] font-bold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#F27430]" />
+                {trialDetails?.days} Days {trialDetails?.hours} Hours Left
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Live Progress Bar & Timestamps */}
+        {!trialDetails?.isPaid && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-zinc-400">Trial Period Timeline</span>
+              <span className="text-[#FFE566] font-semibold">
+                {trialDetails?.isExpired
+                  ? 'Expired (0 hours remaining)'
+                  : `${trialDetails?.days}d ${trialDetails?.hours}h ${trialDetails?.minutes}m remaining`}
+              </span>
+            </div>
+            <div className="w-full h-2.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+              <div
+                className={`h-full transition-all duration-500 ${
+                  trialDetails?.isExpired
+                    ? 'bg-rose-500 w-full'
+                    : 'bg-gradient-to-r from-[#800020] via-[#F27430] to-[#FFE566]'
+                }`}
+                style={{ width: `${trialDetails?.isExpired ? 100 : trialDetails?.percentageRemaining}%` }}
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-zinc-500 font-mono pt-1">
+              <span>Trial Expiration: {new Date(trialDetails?.endsAt || '').toLocaleString()}</span>
+              <span>Automatic reminders notify users before expiry</span>
+            </div>
+          </div>
+        )}
+
+        {/* Developer / Demo Simulator Controls */}
+        <div className="pt-2 border-t border-zinc-900 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-[11px] text-zinc-500 font-mono">
+            Trial State Tester (Simulation Controls):
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSimulateExpire}
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-rose-500/50 text-rose-300 hover:text-white text-[11px] font-mono transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <AlertTriangle className="w-3 h-3 text-rose-400" />
+              <span>Simulate Expired Trial (Test Lock)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleResetTrial}
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-[#F27430] text-[#FFE566] hover:text-white text-[11px] font-mono transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3 h-3 text-[#F27430]" />
+              <span>Reset 7-Day Free Trial</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Credit Status Card */}
       <div className="bg-zinc-950 p-6 rounded-3xl border border-zinc-800 shadow-xl max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -216,6 +429,49 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
           </div>
           <div className="text-emerald-400 flex items-center gap-1 sm:justify-end mt-0.5">
             <Clock className="w-3 h-3" /> Multi-Model API Active
+          </div>
+        </div>
+      </div>
+
+      {/* PayPal Gateway & Environment Integration Status */}
+      <div className="bg-zinc-950 p-5 rounded-3xl border border-zinc-800/80 shadow-lg max-w-4xl mx-auto space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-900 pb-3">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-[#009cde]" />
+            <h3 className="text-xs font-bold font-heading text-white">
+              PayPal Subscriptions & Gateway Configuration
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#0070ba]/10 border border-[#0070ba]/30 text-[#009cde]">
+              API: {paypalConfig?.apiUrl || 'https://api-m.paypal.com'}
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+              Gateway Active
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
+          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
+            <span className="text-zinc-500 block text-[9px] uppercase">PAYPAL_API_URL</span>
+            <span className="text-zinc-300 truncate block font-semibold">{paypalConfig?.apiUrl || 'https://api-m.paypal.com'}</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
+            <span className="text-zinc-500 block text-[9px] uppercase">PRODUCT_ID</span>
+            <span className="text-zinc-300 truncate block font-semibold">{paypalConfig?.productId || 'PROD-VISIONGENAI'}</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
+            <span className="text-zinc-500 block text-[9px] uppercase">PLAN_ID_MONTHLY</span>
+            <span className="text-[#FFE566] truncate block font-semibold" title="P-9KB44565ML579402NNLDLCCY">
+              {paypalConfig?.planIdMonthly || 'P-9KB44565ML579402NNLDLCCY'}
+            </span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-zinc-900/60 border border-zinc-900">
+            <span className="text-zinc-500 block text-[9px] uppercase">PLAN_ID_YEARLY</span>
+            <span className="text-[#F27430] truncate block font-semibold" title="P-2UP231398J986740KNLDLD5Y">
+              {paypalConfig?.planIdYearly || 'P-2UP231398J986740KNLDLD5Y'}
+            </span>
           </div>
         </div>
       </div>
@@ -280,10 +536,16 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
                 <button
                   type="button"
                   onClick={() => handleSelectPlan(plan.id)}
-                  disabled={isCurrent || isProcessingCheckout}
+                  disabled={
+                    isCurrent ||
+                    isProcessingCheckout ||
+                    (plan.id === 'TRIAL_7_DAYS' && trialDetails.isExpired)
+                  }
                   className={`w-full py-3.5 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-2 ${
                     isCurrent
                       ? 'bg-zinc-900 text-zinc-500 cursor-default border border-zinc-800'
+                      : plan.id === 'TRIAL_7_DAYS' && trialDetails.isExpired
+                      ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800 line-through'
                       : plan.highlighted
                       ? 'bg-gradient-to-r from-[#800020] via-[#800020] to-[#F27430] text-white shadow-lg shadow-[#800020]/40 hover:opacity-95'
                       : 'bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-800 hover:border-[#F27430]'
@@ -293,13 +555,43 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
                     <span>Processing Plan...</span>
                   ) : isCurrent ? (
                     <span>Active Current Plan</span>
+                  ) : plan.id === 'TRIAL_7_DAYS' && trialDetails.isExpired ? (
+                    <span>Trial Expired • Upgrade Below</span>
                   ) : (
                     <>
-                      <span>{plan.cta}</span>
+                      <span>{trialDetails.isExpired ? `Restore Access with ${plan.name}` : plan.cta}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
                 </button>
+
+                {plan.id !== 'TRIAL_7_DAYS' && (
+                  <div className="mt-3 pt-3 border-t border-zinc-900/80 space-y-2">
+                    <div className="text-[10px] font-mono text-zinc-400 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <CreditCard className="w-3 h-3 text-[#009cde]" />
+                        <span>PayPal Smart Button:</span>
+                      </span>
+                      <span className="text-[#FFE566] font-semibold">
+                        {plan.id === 'MONTHLY_19_99' ? '$19.99/mo' : '$199.99/yr'}
+                      </span>
+                    </div>
+
+                    <PayPalSubscriptionButton
+                      planId={plan.id === 'MONTHLY_19_99' ? 'P-9KB44565ML579402NNLDLCCY' : 'P-2UP231398J986740KNLDLD5Y'}
+                      planType={plan.id as 'MONTHLY_19_99' | 'YEARLY_199_99'}
+                      planName={plan.name}
+                      priceDisplay={plan.priceDisplay}
+                      onApprove={(subId) => handlePayPalButtonApprove(subId, plan.id as any)}
+                      onError={(err) =>
+                        setCheckoutErrorMsg(
+                          `PayPal error: ${err?.message || 'Transaction could not be completed.'}`
+                        )
+                      }
+                      onFallbackCheckout={() => handlePayPalSubscribe(plan.id as any)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           );

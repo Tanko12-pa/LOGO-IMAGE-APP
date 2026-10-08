@@ -19,6 +19,7 @@ import { BillingView } from './components/views/BillingView';
 import { AdminView } from './components/views/AdminView';
 import { SettingsFeedbackView } from './components/views/SettingsFeedbackView';
 import { PublicLandingView } from './components/views/PublicLandingView';
+import { AuthModal } from './components/AuthModal';
 import {
   BrandKit,
   DesignItem,
@@ -37,9 +38,11 @@ import {
   deleteDesignDoc,
   saveProjectDoc,
   saveBrandKitDoc,
+  updateUserProfileDoc,
   listenToUserDesigns,
   listenToUserProjects,
   listenToUserBrandKits,
+  listenToUserProfileDoc,
 } from './services/firebase';
 
 export default function App() {
@@ -55,6 +58,13 @@ export default function App() {
   const [isBiometricLocked, setIsBiometricLocked] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signup');
+
+  const handleOpenAuthModal = (mode: 'signin' | 'signup' = 'signup') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
 
   // App Data State (Backed by Local Storage & Firestore)
   const [designs, setDesigns] = useState<DesignItem[]>(() => storageService.getDesigns());
@@ -116,11 +126,33 @@ export default function App() {
         remoteKits.forEach((k) => storageService.saveBrandKit(k));
       }
     });
+    const unsubProfile = listenToUserProfileDoc(firebaseUser.uid, (remoteProfile) => {
+      if (remoteProfile) {
+        setUserProfile((prev) => {
+          const updated: UserProfile = {
+            ...prev,
+            ...remoteProfile,
+            name: remoteProfile.name || prev.name,
+            email: remoteProfile.email || prev.email,
+            avatarUrl: remoteProfile.avatarUrl || prev.avatarUrl,
+            plan: (remoteProfile.plan as any) || prev.plan,
+            creditsRemaining: remoteProfile.creditsRemaining ?? prev.creditsRemaining,
+            creditsUsed: remoteProfile.creditsUsed ?? prev.creditsUsed,
+            trialStartedAt: remoteProfile.trialStartedAt || prev.trialStartedAt,
+            trialEndsAt: remoteProfile.trialEndsAt || prev.trialEndsAt,
+            subscriptionStatus: (remoteProfile.subscriptionStatus as any) || prev.subscriptionStatus,
+          };
+          storageService.saveUserProfile(updated);
+          return updated;
+        });
+      }
+    });
 
     return () => {
       unsubDesigns();
       unsubProjects();
       unsubBrandKits();
+      unsubProfile();
     };
   }, [firebaseUser]);
 
@@ -297,6 +329,11 @@ export default function App() {
   const handleUpdateProfile = (profile: UserProfile) => {
     storageService.saveUserProfile(profile);
     setUserProfile(profile);
+    if (firebaseUser) {
+      updateUserProfileDoc(firebaseUser.uid, profile).catch((err) =>
+        console.warn('Firestore profile update warning:', err)
+      );
+    }
   };
 
   const handleMarkNotificationsRead = () => {
@@ -316,6 +353,72 @@ export default function App() {
 
   const favoritesCount = designs.filter((d) => d.isFavorite).length;
 
+  const trialDetails = storageService.getTrialDetails();
+
+  // Check trial milestones and dispatch automated expiry notifications
+  useEffect(() => {
+    storageService.checkAndNotifyTrialMilestones();
+    setNotifications(storageService.getNotifications());
+  }, [userProfile]);
+
+  // Automatic access restriction and redirection to Billing if trial is expired
+  useEffect(() => {
+    const details = storageService.getTrialDetails();
+    if (details.isExpired) {
+      const restrictedViews: NavView[] = [
+        'dashboard',
+        'logo-generator',
+        'image-generator',
+        'computer-vision',
+        'a2a-judge',
+        'brand-studio',
+        'image-editor',
+        'video-motion',
+        'templates',
+        'projects',
+        'my-designs',
+        'favorites',
+        'history',
+      ];
+      if (restrictedViews.includes(currentView)) {
+        setCurrentView('billing');
+        storageService.addNotification({
+          title: 'Access Restricted — Trial Expired',
+          message: 'Your 7-Day Free Trial has ended. Redirected to Billing to select a subscription plan.',
+          type: 'warning',
+        });
+        setNotifications(storageService.getNotifications());
+      }
+    }
+  }, [currentView, userProfile]);
+
+  // Navigation interceptor ensuring expired users cannot access restricted tools
+  const handleSelectView = (view: NavView) => {
+    const details = storageService.getTrialDetails();
+    const restrictedViews: NavView[] = [
+      'logo-generator',
+      'image-generator',
+      'computer-vision',
+      'a2a-judge',
+      'brand-studio',
+      'image-editor',
+      'video-motion',
+      'templates',
+      'projects',
+    ];
+    if (details.isExpired && restrictedViews.includes(view)) {
+      setCurrentView('billing');
+      storageService.addNotification({
+        title: 'Subscription Required',
+        message: 'Your 7-Day Free Trial has expired. Please select a plan to unlock full access.',
+        type: 'warning',
+      });
+      setNotifications(storageService.getNotifications());
+      return;
+    }
+    setCurrentView(view);
+  };
+
   // Search filter across designs
   const displayedDesigns = searchQuery
     ? designs.filter(
@@ -334,31 +437,37 @@ export default function App() {
     >
       {/* If Landing view is chosen, render full-width landing */}
       {currentView === 'landing' ? (
-        <PublicLandingView onNavigate={(view) => setCurrentView(view)} />
+        <PublicLandingView
+          onNavigate={handleSelectView}
+          onOpenAuthModal={handleOpenAuthModal}
+        />
       ) : (
         <div className="flex-1 flex flex-col lg:flex-row min-h-screen">
           {/* Single Left-Hand Panel (Sidebar) */}
           <Sidebar
             currentView={currentView}
-            onSelectView={(view) => setCurrentView(view)}
+            onSelectView={handleSelectView}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             isMobileOpen={isMobileMenuOpen}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
             favoriteCount={favoritesCount}
             projectCount={projects.length}
+            userProfile={userProfile}
+            trialDetails={trialDetails}
           />
 
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-w-0 bg-zinc-950">
             {/* Top Navigation */}
             <TopNav
-              onSelectView={(view) => setCurrentView(view)}
+              onSelectView={handleSelectView}
               onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
               onOpenAssistant={() => setIsAssistantOpen(true)}
               onStartTour={() => setIsTourOpen(true)}
               onLockBiometric={handleLockBiometric}
               userProfile={userProfile}
+              trialDetails={trialDetails}
               notifications={notifications}
               onMarkNotificationsRead={handleMarkNotificationsRead}
               isOffline={isOffline}
@@ -370,6 +479,7 @@ export default function App() {
               firebaseUser={firebaseUser}
               onSignInWithGoogle={handleSignInWithGoogle}
               onSignOut={handleSignOut}
+              onOpenAuthModal={handleOpenAuthModal}
               firebaseConnected={true}
             />
 
@@ -462,10 +572,34 @@ export default function App() {
                 <BillingView
                   userProfile={userProfile}
                   onUpdatePlan={(plan) => {
-                    handleUpdateProfile({ ...userProfile, plan });
+                    let newCredits = userProfile.creditsRemaining;
+                    let planLabel = 'Plan';
+                    let subStatus: 'trial' | 'active' | 'expired' | 'canceled' = 'active';
+                    if (plan === 'MONTHLY_19_99') {
+                      newCredits = Math.max(newCredits, 600);
+                      planLabel = 'Monthly Pro ($19.99/mo)';
+                      subStatus = 'active';
+                    } else if (plan === 'YEARLY_199_99') {
+                      newCredits = Math.max(newCredits, 7500);
+                      planLabel = 'Annual Enterprise Pro ($199.99/yr)';
+                      subStatus = 'active';
+                    } else if (plan === 'TRIAL_7_DAYS') {
+                      newCredits = Math.max(newCredits, 150);
+                      planLabel = '7-Day Free Trial';
+                      const fresh = storageService.getUserProfile();
+                      subStatus = fresh.subscriptionStatus || 'trial';
+                    }
+
+                    const freshProfile = storageService.getUserProfile();
+                    handleUpdateProfile({
+                      ...freshProfile,
+                      plan,
+                      subscriptionStatus: subStatus,
+                      creditsRemaining: newCredits,
+                    });
                     storageService.addNotification({
-                      title: 'Plan Updated',
-                      message: `Your account is now on the ${plan} plan.`,
+                      title: 'Subscription Activated',
+                      message: `Successfully updated to ${planLabel}. Credits balance: ${newCredits}. Full access restored!`,
                       type: 'success',
                     });
                     setNotifications(storageService.getNotifications());
@@ -508,6 +642,22 @@ export default function App() {
             ? 'Touch sensor or scan Face ID to resume your creative workspace'
             : 'Verify biometric identity to access encrypted brand assets'
         }
+      />
+
+      {/* Email Sign In & Sign Up Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        initialMode={authModalMode}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={(user) => {
+          setFirebaseUser(user);
+          storageService.addNotification({
+            title: 'Authentication Successful',
+            message: `Signed in as ${user.email}. Real-time cloud sync active.`,
+            type: 'success',
+          });
+          setNotifications(storageService.getNotifications());
+        }}
       />
 
       {/* LOGMAGE Interactive AI Assistant */}

@@ -18,9 +18,10 @@ import { NavView } from '../../types';
 
 interface PublicLandingViewProps {
   onNavigate: (view: NavView) => void;
+  onOpenAuthModal?: (mode?: 'signin' | 'signup') => void;
 }
 
-export const PublicLandingView: React.FC<PublicLandingViewProps> = ({ onNavigate }) => {
+export const PublicLandingView: React.FC<PublicLandingViewProps> = ({ onNavigate, onOpenAuthModal }) => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const faqs = [
@@ -56,8 +57,46 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({ onNavigate
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-[#F27430] selection:text-white">
+      {/* Top Navbar on Public Landing */}
+      <header className="h-16 px-6 max-w-7xl mx-auto flex items-center justify-between border-b border-zinc-900/80">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#800020] via-[#F27430] to-[#FFE566] p-0.5 shadow-md">
+            <div className="w-full h-full bg-zinc-950 rounded-[10px] flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-[#FFE566]" />
+            </div>
+          </div>
+          <span className="font-extrabold text-sm tracking-tight text-white font-heading">
+            LOGIMAGE<span className="text-[#FFE566]">.AI</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onNavigate('billing')}
+            className="text-xs text-zinc-400 hover:text-white font-semibold transition-colors hidden sm:inline"
+          >
+            Pricing & Plans
+          </button>
+          <button
+            type="button"
+            onClick={() => (onOpenAuthModal ? onOpenAuthModal('signin') : onNavigate('dashboard'))}
+            className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-200 font-semibold transition-all cursor-pointer"
+          >
+            Sign In with Email
+          </button>
+          <button
+            type="button"
+            onClick={() => (onOpenAuthModal ? onOpenAuthModal('signup') : onNavigate('dashboard'))}
+            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#800020] to-[#F27430] hover:opacity-95 text-xs text-white font-bold shadow-md shadow-[#800020]/30 transition-all cursor-pointer"
+          >
+            Sign Up (7-Day Trial)
+          </button>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <section className="relative px-6 pt-20 pb-28 md:pt-28 md:pb-36 overflow-hidden text-center">
+      <section className="relative px-6 pt-16 pb-28 md:pt-24 md:pb-36 overflow-hidden text-center">
         {/* Ambient Top Glow using signature colors */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-r from-[#800020] via-[#F27430] to-[#FFE566] blur-[120px] opacity-25 pointer-events-none" />
 
@@ -81,22 +120,26 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({ onNavigate
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
             <button
               type="button"
-              onClick={() => onNavigate('dashboard')}
-              className="px-7 py-3.5 rounded-2xl bg-gradient-to-r from-[#800020] via-[#800020] to-[#F27430] text-white font-bold text-sm shadow-xl shadow-[#800020]/30 hover:opacity-95 transition-all flex items-center gap-2"
+              onClick={() => (onOpenAuthModal ? onOpenAuthModal('signup') : onNavigate('dashboard'))}
+              className="px-7 py-3.5 rounded-2xl bg-gradient-to-r from-[#800020] via-[#800020] to-[#F27430] text-white font-bold text-sm shadow-xl shadow-[#800020]/30 hover:opacity-95 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <span>Create Your Design</span>
+              <span>Sign Up with Email (7-Day Free Trial)</span>
               <ArrowRight className="w-4 h-4 text-[#FFE566]" />
             </button>
 
             <button
               type="button"
-              onClick={() => onNavigate('computer-vision')}
-              className="px-7 py-3.5 rounded-2xl bg-zinc-900 border border-zinc-700 text-white font-bold text-sm hover:bg-zinc-800 hover:border-[#FFE566] transition-all flex items-center gap-2"
+              onClick={() => onNavigate('billing')}
+              className="px-7 py-3.5 rounded-2xl bg-zinc-900 border border-zinc-700 text-white font-bold text-sm hover:bg-zinc-800 hover:border-[#FFE566] transition-all flex items-center gap-2 cursor-pointer"
             >
-              <ScanEye className="w-4 h-4 text-[#FFE566]" />
-              <span>Explore AI Tools</span>
+              <Zap className="w-4 h-4 text-[#FFE566]" />
+              <span>Subscription & Plans</span>
             </button>
           </div>
+
+          <p className="text-[11px] font-mono text-zinc-400">
+            ✓ 7-Day Free Trial included for all new users • 150 AI credits • No credit card required to start
+          </p>
         </div>
       </section>
 

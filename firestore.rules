@@ -42,12 +42,15 @@ service cloud.firestore {
     // Entity Validators
     function isValidUser(data) {
       return data.keys().hasAll(['email', 'name', 'plan', 'creditsRemaining']) &&
-        data.keys().hasOnly(['email', 'name', 'avatarUrl', 'plan', 'creditsRemaining', 'creditsUsed', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['email', 'name', 'avatarUrl', 'plan', 'creditsRemaining', 'creditsUsed', 'trialStartedAt', 'trialEndsAt', 'subscriptionStatus', 'createdAt', 'updatedAt']) &&
         data.email is string && data.email.size() <= 256 &&
         data.name is string && data.name.size() <= 128 &&
         data.plan in ['FREE', 'PRO', 'BUSINESS', 'TRIAL_7_DAYS', 'MONTHLY_19_99', 'YEARLY_199_99'] &&
         data.creditsRemaining is number &&
         (!('creditsUsed' in data) || data.creditsUsed is number) &&
+        (!('trialStartedAt' in data) || (data.trialStartedAt is string && data.trialStartedAt.size() <= 64)) &&
+        (!('trialEndsAt' in data) || (data.trialEndsAt is string && data.trialEndsAt.size() <= 64)) &&
+        (!('subscriptionStatus' in data) || data.subscriptionStatus in ['trial', 'active', 'expired', 'cancelled']) &&
         (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1024));
     }
 
@@ -89,13 +92,25 @@ service cloud.firestore {
         (!('isDefault' in data) || data.isDefault is bool);
     }
 
+    function isValidSubscription(data) {
+      return data.keys().hasAll(['subscriptionId', 'status']) &&
+        data.keys().hasOnly(['subscriptionId', 'userId', 'status', 'planId', 'planType', 'creditsGranted', 'lastEventType', 'updatedAt']) &&
+        data.subscriptionId is string && data.subscriptionId.size() <= 128 &&
+        data.status in ['ACTIVE', 'CANCELLED', 'SUSPENDED', 'EXPIRED', 'APPROVAL_PENDING'] &&
+        (!('userId' in data) || (data.userId is string && data.userId.size() <= 128)) &&
+        (!('planId' in data) || (data.planId is string && data.planId.size() <= 128)) &&
+        (!('planType' in data) || (data.planType is string && data.planType.size() <= 64)) &&
+        (!('creditsGranted' in data) || data.creditsGranted is number) &&
+        (!('lastEventType' in data) || (data.lastEventType is string && data.lastEventType.size() <= 128));
+    }
+
     // User Profile Rules
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
       allow update: if (isOwner(userId) || isAdmin()) && isValidId(userId) && isValidUser(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatarUrl', 'plan', 'creditsRemaining', 'creditsUsed', 'updatedAt'])
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'avatarUrl', 'plan', 'creditsRemaining', 'creditsUsed', 'trialStartedAt', 'trialEndsAt', 'subscriptionStatus', 'updatedAt'])
       );
       allow delete: if isAdmin();
 
@@ -138,6 +153,14 @@ service cloud.firestore {
     match /admins/{adminId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // Subscriptions Root Collection
+    match /subscriptions/{subscriptionId} {
+      allow get: if (isVerified() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && isValidId(subscriptionId) && isValidSubscription(incoming());
+      allow delete: if isAdmin();
     }
   }
 }

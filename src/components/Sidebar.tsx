@@ -24,8 +24,10 @@ import {
   Lock,
   Cpu,
   Zap,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
-import { NavView } from '../types';
+import { NavView, UserProfile } from '../types';
 
 interface SidebarProps {
   currentView: NavView;
@@ -36,6 +38,16 @@ interface SidebarProps {
   onCloseMobile: () => void;
   favoriteCount: number;
   projectCount: number;
+  userProfile?: UserProfile;
+  trialDetails?: {
+    isPaid: boolean;
+    isExpired: boolean;
+    days: number;
+    hours: number;
+    minutes: number;
+    percentageRemaining: number;
+    status: string;
+  };
 }
 
 interface NavItem {
@@ -82,6 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   favoriteCount,
   projectCount,
+  userProfile,
+  trialDetails,
 }) => {
   const [navItems, setNavItems] = useState<NavItem[]>(() => {
     try {
@@ -208,6 +222,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
+            const restrictedViews: NavView[] = [
+              'logo-generator',
+              'image-generator',
+              'computer-vision',
+              'a2a-judge',
+              'brand-studio',
+              'image-editor',
+              'video-motion',
+              'templates',
+              'projects',
+            ];
+            const isLocked = Boolean(trialDetails?.isExpired && restrictedViews.includes(item.id));
             const badgeCount =
               item.id === 'favorites' && favoriteCount > 0
                 ? favoriteCount
@@ -223,15 +249,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onDragOver={(e) => handleDragOver(e, item.id)}
                 onDragEnd={handleDragEnd}
                 onClick={() => {
-                  onSelectView(item.id);
+                  if (isLocked) {
+                    onSelectView('billing');
+                  } else {
+                    onSelectView(item.id);
+                  }
                   onCloseMobile();
                 }}
                 className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer select-none transition-all duration-150 ${
                   isActive
                     ? 'bg-gradient-to-r from-[#800020] via-[#800020]/90 to-[#F27430]/60 text-white font-semibold shadow-lg shadow-[#800020]/20 border border-[#F27430]/30'
+                    : isLocked
+                    ? 'text-zinc-500 hover:text-rose-300 hover:bg-rose-950/20 border border-transparent'
                     : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/80 border border-transparent'
                 }`}
-                title={isCollapsed ? item.label : undefined}
+                title={isCollapsed ? (isLocked ? `${item.label} (Trial Expired - Unlock)` : item.label) : undefined}
               >
                 {/* Drag handle */}
                 {!isCollapsed && (
@@ -241,7 +273,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Icon */}
                 <div
                   className={`flex items-center justify-center rounded-lg p-1 transition-colors ${
-                    isActive ? 'text-[#FFE566]' : 'text-zinc-400 group-hover:text-zinc-200'
+                    isActive ? 'text-[#FFE566]' : isLocked ? 'text-zinc-500 group-hover:text-rose-400' : 'text-zinc-400 group-hover:text-zinc-200'
                   }`}
                 >
                   <Icon className="w-5 h-5 shrink-0" />
@@ -250,12 +282,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Label & Badges */}
                 {!isCollapsed && (
                   <div className="flex-1 flex items-center justify-between min-w-0">
-                    <span className="text-xs truncate tracking-tight">{item.label}</span>
+                    <span className={`text-xs truncate tracking-tight ${isLocked ? 'line-through text-zinc-500' : ''}`}>
+                      {item.label}
+                    </span>
                     <div className="flex items-center gap-1.5 ml-2">
-                      {item.badge && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-800/80 text-[#FFE566] border border-zinc-700/50 font-bold shrink-0">
-                          {item.badge}
+                      {isLocked ? (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-rose-950/80 text-rose-300 border border-rose-800/80 font-bold shrink-0 flex items-center gap-0.5">
+                          <Lock className="w-2.5 h-2.5" /> Locked
                         </span>
+                      ) : (
+                        item.badge && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-zinc-800/80 text-[#FFE566] border border-zinc-700/50 font-bold shrink-0">
+                            {item.badge}
+                          </span>
+                        )
                       )}
                       {badgeCount !== null && (
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-[#F27430] text-white font-bold shrink-0">
@@ -275,45 +315,113 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Bottom Quick Status & Hardware Lock Card */}
+        {/* Bottom Quick Status & Subscription Card */}
         <div className="p-3 border-t border-zinc-900 bg-zinc-950">
           {!isCollapsed ? (
-            <div className="p-3 rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 text-zinc-300 font-medium">
-                  <Zap className="w-3.5 h-3.5 text-[#F27430]" />
-                  AI Credits
-                </span>
-                <span className="font-mono text-[#FFE566] font-bold">480 / 600</span>
-              </div>
-              <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#800020] via-[#F27430] to-[#FFE566]"
-                  style={{ width: '80%' }}
-                />
-              </div>
-              <div className="flex items-center justify-between pt-1 text-[11px] text-zinc-400">
-                <span className="flex items-center gap-1 text-emerald-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Offline Ready
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onSelectView('settings')}
-                  className="text-zinc-400 hover:text-white flex items-center gap-1"
-                >
-                  <Lock className="w-3 h-3 text-[#FFE566]" /> Passkey
-                </button>
-              </div>
+            <div className={`p-3 rounded-xl border space-y-2 ${
+              trialDetails?.isExpired
+                ? 'bg-gradient-to-b from-rose-950/40 to-zinc-950 border-rose-800/80 ring-1 ring-rose-500/20'
+                : trialDetails?.isPaid
+                ? 'bg-gradient-to-b from-[#800020]/20 to-zinc-950 border-[#800020]/40'
+                : 'bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800'
+            }`}>
+              {trialDetails?.isExpired ? (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-rose-300 font-bold">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+                      Trial Expired
+                    </span>
+                    <span className="font-mono text-rose-400 font-bold text-[10px]">Restricted</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-tight">
+                    7-Day Free Trial period has ended. Access restricted until subscribed.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onSelectView('billing')}
+                    className="w-full py-1.5 px-2 rounded-lg bg-gradient-to-r from-[#800020] to-[#F27430] hover:opacity-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#800020]/40"
+                  >
+                    <span>Restore Full Access</span>
+                  </button>
+                </>
+              ) : !trialDetails?.isPaid ? (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-[#FFE566] font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-[#F27430]" />
+                      7-Day Free Trial
+                    </span>
+                    <span className="font-mono text-[#FFE566] font-bold text-[11px]">
+                      {trialDetails ? `${trialDetails.days}d ${trialDetails.hours}h left` : '7d left'}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#800020] via-[#F27430] to-[#FFE566] transition-all"
+                      style={{ width: `${trialDetails?.percentageRemaining ?? 100}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-zinc-400">
+                    <span className="flex items-center gap-1 text-zinc-300 font-mono">
+                      <Zap className="w-3 h-3 text-[#F27430]" />
+                      {userProfile?.creditsRemaining ?? 150} credits
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onSelectView('billing')}
+                      className="text-[#FFE566] hover:underline font-semibold"
+                    >
+                      Upgrade
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                      <Zap className="w-3.5 h-3.5 text-[#F27430]" />
+                      {userProfile?.plan === 'YEARLY_199_99' ? 'Enterprise Pro' : 'Monthly Pro'}
+                    </span>
+                    <span className="font-mono text-[#FFE566] font-bold">
+                      {userProfile?.creditsRemaining ?? 600}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-300"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-zinc-400">
+                    <span className="text-emerald-400">Paid Plan Active</span>
+                    <button
+                      type="button"
+                      onClick={() => onSelectView('billing')}
+                      className="text-zinc-400 hover:text-white"
+                    >
+                      Manage
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2">
               <div
-                title="AI Credits 480/600"
-                className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[#FFE566] cursor-pointer"
+                title={trialDetails?.isExpired ? 'Trial Expired - Unlock' : 'AI Subscriptions & Billing'}
+                className={`w-10 h-10 rounded-xl border flex items-center justify-center cursor-pointer ${
+                  trialDetails?.isExpired
+                    ? 'bg-rose-950 border-rose-700 text-rose-300 animate-pulse'
+                    : 'bg-zinc-900 border-zinc-800 text-[#FFE566]'
+                }`}
                 onClick={() => onSelectView('billing')}
               >
-                <Zap className="w-4 h-4 text-[#F27430]" />
+                {trialDetails?.isExpired ? (
+                  <Lock className="w-4 h-4 text-rose-400" />
+                ) : (
+                  <Zap className="w-4 h-4 text-[#F27430]" />
+                )}
               </div>
             </div>
           )}

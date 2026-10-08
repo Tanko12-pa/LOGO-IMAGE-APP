@@ -68,9 +68,20 @@ export const INITIAL_USER_PROFILE: UserProfile = {
   name: 'Creative Director',
   email: 'creator@logoimage.ai',
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-  plan: 'PRO',
-  creditsRemaining: 480,
-  creditsUsed: 120,
+  plan: 'TRIAL_7_DAYS',
+  subscriptionStatus: 'trial',
+  trialStartedAt: new Date().toISOString(),
+  trialEndsAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+  subscription: {
+    status: 'trial',
+    planType: 'TRIAL_7_DAYS',
+    trialEndsAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+    priceMonthly: 19.99,
+    priceYearly: 199.99,
+    daysRemaining: 7,
+  },
+  creditsRemaining: 150,
+  creditsUsed: 0,
   biometricRegistered: true,
   biometricLocked: false,
   offlineEnabled: true,
@@ -466,7 +477,161 @@ class StorageService {
 
   // User Profile
   getUserProfile(): UserProfile {
-    return this.getItem<UserProfile>(STORAGE_KEYS.USER_PROFILE, INITIAL_USER_PROFILE);
+    const profile = this.getItem<UserProfile>(STORAGE_KEYS.USER_PROFILE, INITIAL_USER_PROFILE);
+    
+    // Auto-calculate trial status & expiration
+    if (profile.plan === 'TRIAL_7_DAYS' || profile.subscriptionStatus === 'trial') {
+      const endsAtTime = profile.trialEndsAt ? new Date(profile.trialEndsAt).getTime() : (Date.now() + 7 * 86400000);
+      const now = Date.now();
+      const diffMs = endsAtTime - now;
+      const daysRemaining = Math.max(0, Math.ceil(diffMs / 86400000));
+      
+      if (diffMs <= 0) {
+        profile.subscriptionStatus = 'expired';
+        if (profile.subscription) {
+          profile.subscription.status = 'expired';
+          profile.subscription.daysRemaining = 0;
+        }
+      } else {
+        profile.subscriptionStatus = 'trial';
+        if (!profile.subscription) {
+          profile.subscription = {
+            status: 'trial',
+            planType: 'TRIAL_7_DAYS',
+            trialEndsAt: new Date(endsAtTime).toISOString(),
+            priceMonthly: 19.99,
+            priceYearly: 199.99,
+            daysRemaining,
+          };
+        } else {
+          profile.subscription.status = 'trial';
+          profile.subscription.daysRemaining = daysRemaining;
+        }
+      }
+    }
+    return profile;
+  }
+
+  isAccessGranted(): boolean {
+    const profile = this.getUserProfile();
+    if (profile.plan === 'MONTHLY_19_99' || profile.plan === 'YEARLY_199_99' || profile.subscriptionStatus === 'active') {
+      return true;
+    }
+    if (profile.plan === 'TRIAL_7_DAYS' || profile.subscriptionStatus === 'trial') {
+      const endsAtTime = profile.trialEndsAt ? new Date(profile.trialEndsAt).getTime() : 0;
+      return endsAtTime > Date.now();
+    }
+    return false;
+  }
+
+  getTrialDetails() {
+    const profile = this.getUserProfile();
+    const isPaid = profile.plan === 'MONTHLY_19_99' || profile.plan === 'YEARLY_199_99' || profile.subscriptionStatus === 'active';
+    const endsAt = profile.trialEndsAt ? new Date(profile.trialEndsAt).getTime() : (Date.now() + 7 * 86400000);
+    const now = Date.now();
+    const diffMs = Math.max(0, endsAt - now);
+    const totalTrialDurationMs = 7 * 86400000;
+    const isExpired = !isPaid && diffMs <= 0;
+    
+    const days = Math.floor(diffMs / 86400000);
+    const hours = Math.floor((diffMs % 86400000) / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+    const percentageRemaining = isPaid ? 100 : Math.min(100, Math.max(0, Math.round((diffMs / totalTrialDurationMs) * 100)));
+
+    return {
+      isPaid,
+      isExpired,
+      days,
+      hours,
+      minutes,
+      diffMs,
+      endsAt: new Date(endsAt).toISOString(),
+      percentageRemaining,
+      status: isPaid ? 'active' : isExpired ? 'expired' : 'trial',
+    };
+  }
+
+  activateTrial(userName?: string, userEmail?: string): UserProfile {
+    const profile = this.getUserProfile();
+    const now = Date.now();
+    const endsAt = new Date(now + 7 * 86400000).toISOString();
+    
+    const updated: UserProfile = {
+      ...profile,
+      name: userName || profile.name || 'Vision Creator',
+      email: userEmail || profile.email || 'creator@logoimage.ai',
+      plan: 'TRIAL_7_DAYS',
+      subscriptionStatus: 'trial',
+      trialStartedAt: new Date(now).toISOString(),
+      trialEndsAt: endsAt,
+      creditsRemaining: Math.max(profile.creditsRemaining, 150),
+      subscription: {
+        status: 'trial',
+        planType: 'TRIAL_7_DAYS',
+        trialEndsAt: endsAt,
+        priceMonthly: 19.99,
+        priceYearly: 199.99,
+        daysRemaining: 7,
+      },
+    };
+    
+    this.saveUserProfile(updated);
+    this.addNotification({
+      title: '7-Day Free Trial Activated',
+      message: 'Welcome! You have full access to all 5 foundation models and 150 AI credits for 7 days.',
+      type: 'success',
+    });
+    return updated;
+  }
+
+  simulateTrialExpired(): UserProfile {
+    const profile = this.getUserProfile();
+    const expiredTime = new Date(Date.now() - 3600000).toISOString();
+    const updated: UserProfile = {
+      ...profile,
+      plan: 'TRIAL_7_DAYS',
+      subscriptionStatus: 'expired',
+      trialEndsAt: expiredTime,
+      subscription: {
+        status: 'expired',
+        planType: 'TRIAL_7_DAYS',
+        trialEndsAt: expiredTime,
+        priceMonthly: 19.99,
+        priceYearly: 199.99,
+        daysRemaining: 0,
+      },
+    };
+    this.saveUserProfile(updated);
+    this.addNotification({
+      title: '7-Day Free Trial Expired',
+      message: 'Your 7-Day Free Trial has expired. Access to AI tools is restricted until a subscription is activated.',
+      type: 'warning',
+    });
+    return updated;
+  }
+
+  checkAndNotifyTrialMilestones(): void {
+    const details = this.getTrialDetails();
+    if (details.isPaid) return;
+
+    const lastAlertKey = 'vision_genai_last_trial_alert';
+    const lastAlert = localStorage.getItem(lastAlertKey);
+
+    if (details.isExpired && lastAlert !== 'expired') {
+      localStorage.setItem(lastAlertKey, 'expired');
+      this.addNotification({
+        title: '7-Day Free Trial Expired',
+        message: 'Your 7-day trial period has ended. Access to creative tools is locked. Select a plan to restore access.',
+        type: 'warning',
+      });
+    } else if (!details.isExpired && details.days <= 2 && lastAlert !== `expiring_${details.days}`) {
+      localStorage.setItem(lastAlertKey, `expiring_${details.days}`);
+      this.addNotification({
+        title: 'Trial Expiring Soon',
+        message: `Your 7-Day Free Trial expires in ${details.days === 0 ? 'less than 24 hours' : `${details.days} days`}. Upgrade today to keep generating without interruption!`,
+        type: 'warning',
+      });
+    }
   }
 
   saveUserProfile(profile: UserProfile): void {
@@ -474,6 +639,9 @@ class StorageService {
   }
 
   deductCredits(amount = 1): number {
+    if (!this.isAccessGranted()) {
+      throw new Error('Your 7-Day Free Trial has expired. Please upgrade your subscription to continue generating.');
+    }
     const profile = this.getUserProfile();
     profile.creditsRemaining = Math.max(0, profile.creditsRemaining - amount);
     profile.creditsUsed += amount;

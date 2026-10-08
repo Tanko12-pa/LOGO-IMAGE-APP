@@ -25,6 +25,21 @@
           "description": "Subscription tier",
           "enum": ["FREE", "PRO", "BUSINESS", "TRIAL_7_DAYS", "MONTHLY_19_99", "YEARLY_199_99"]
         },
+        "trialStartedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the 7-day free trial was activated"
+        },
+        "trialEndsAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the 7-day free trial expires"
+        },
+        "subscriptionStatus": {
+          "type": "string",
+          "description": "Status of the subscription or trial",
+          "enum": ["trial", "active", "expired", "cancelled"]
+        },
         "creditsRemaining": {
           "type": "number",
           "description": "Remaining AI generation credits"
@@ -232,6 +247,53 @@
         }
       },
       "required": ["email", "role"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "PayPal subscription agreement record and status tracking",
+      "type": "object",
+      "properties": {
+        "subscriptionId": {
+          "type": "string",
+          "description": "PayPal subscription agreement ID",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Subscriber user ID",
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "description": "Current subscription status",
+          "enum": ["ACTIVE", "CANCELLED", "SUSPENDED", "EXPIRED", "APPROVAL_PENDING"]
+        },
+        "planId": {
+          "type": "string",
+          "description": "PayPal Plan ID",
+          "maxLength": 128
+        },
+        "planType": {
+          "type": "string",
+          "description": "Application subscription plan tier",
+          "maxLength": 64
+        },
+        "creditsGranted": {
+          "type": "number",
+          "description": "Credits allocated to the subscriber account"
+        },
+        "lastEventType": {
+          "type": "string",
+          "description": "Latest PayPal webhook event processed",
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last update"
+        }
+      },
+      "required": ["subscriptionId", "status"]
     }
   },
   "firestore": {
@@ -254,6 +316,10 @@
     "/admins/{adminId}": {
       "schema": "Admin",
       "description": "Trusted collection of verified system administrators"
+    },
+    "/subscriptions/{subscriptionId}": {
+      "schema": "Subscription",
+      "description": "Global PayPal subscription agreements and status updates"
     }
   }
 }

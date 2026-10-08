@@ -26,6 +26,7 @@ import {
   Send,
   HelpCircle,
   Accessibility,
+  CreditCard,
 } from 'lucide-react';
 import { UserProfile, CustomInstructions, NotificationPreferences } from '../../types';
 import { storageService } from '../../services/storageService';
@@ -644,6 +645,39 @@ export const SettingsFeedbackView: React.FC<SettingsFeedbackViewProps> = ({
                 <div className="text-zinc-400 flex justify-between">
                   <span>Current User:</span>
                   <span className="text-[#F27430] truncate max-w-[200px]">{userProfile.email}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-zinc-900/70 border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-[#009cde]" />
+                  PayPal Subscriptions & Environment
+                </span>
+                <span className="text-[10px] font-mono text-[#009cde] bg-[#0070ba]/10 px-2 py-0.5 rounded border border-[#0070ba]/30">
+                  REST Configured
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Billing environment variables configured for recurring subscriptions ($19.99/mo & $199.99/yr) and catalog product synchronization.
+              </p>
+              <div className="space-y-1 text-[11px] font-mono bg-zinc-950 p-2.5 rounded-xl border border-zinc-800/80">
+                <div className="text-zinc-400 flex justify-between">
+                  <span>PAYPAL_API_URL:</span>
+                  <span className="text-zinc-200">https://api-m.paypal.com</span>
+                </div>
+                <div className="text-zinc-400 flex justify-between">
+                  <span>PRODUCT_ID:</span>
+                  <span className="text-[#FFE566]">PROD-VISIONGENAI</span>
+                </div>
+                <div className="text-zinc-400 flex justify-between">
+                  <span>PLAN_MONTHLY:</span>
+                  <span className="text-[#F27430] truncate max-w-[140px]" title="P-9KB44565ML579402NNLDLCCY">P-9KB44565ML...</span>
+                </div>
+                <div className="text-zinc-400 flex justify-between">
+                  <span>PLAN_YEARLY:</span>
+                  <span className="text-emerald-400 truncate max-w-[140px]" title="P-2UP231398J986740KNLDLD5Y">P-2UP231398J...</span>
                 </div>
               </div>
             </div>

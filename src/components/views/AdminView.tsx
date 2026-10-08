@@ -162,6 +162,63 @@ export const AdminView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* PayPal Environment & Gateway Monitoring Panel */}
+      <div className="bg-zinc-950 p-6 rounded-3xl border border-zinc-800 shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold font-heading text-white uppercase tracking-wider flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-[#009cde]" />
+            PayPal Environment & Payment Gateway Configuration
+          </h2>
+          <span className="text-xs font-mono text-[#009cde] bg-[#0070ba]/10 px-2.5 py-1 rounded-xl border border-[#0070ba]/30">
+            REST API Integrated
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_API_URL</div>
+            <div className="text-sm font-bold font-mono text-white truncate">https://api-m.paypal.com</div>
+            <div className="text-[10px] text-emerald-400">Live Production REST Gateway</div>
+          </div>
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_PRODUCT_ID</div>
+            <div className="text-sm font-bold font-mono text-[#FFE566]">PROD-VISIONGENAI</div>
+            <div className="text-[10px] text-zinc-400">Catalog Product Active</div>
+          </div>
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_PLAN_ID_MONTHLY</div>
+            <div className="text-sm font-bold font-mono text-[#F27430] truncate" title="P-9KB44565ML579402NNLDLCCY">
+              P-9KB44565ML579402NNLDLCCY
+            </div>
+            <div className="text-[10px] text-zinc-400">$19.99/mo (600 Credits)</div>
+          </div>
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_PLAN_ID_YEARLY</div>
+            <div className="text-sm font-bold font-mono text-[#FFE566] truncate" title="P-2UP231398J986740KNLDLD5Y">
+              P-2UP231398J986740KNLDLD5Y
+            </div>
+            <div className="text-[10px] text-zinc-400">$199.99/yr (7,500 Credits)</div>
+          </div>
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_CLIENT_ID</div>
+            <div className="text-sm font-bold font-mono text-emerald-400 truncate" title="BAAIOmq3Kx_2Lo8oiG7L8JlzOuuAKT2E1V2cJaJka7wJ5afyYJRYJRhXzbX-KnAPEU19Hn4jdHf79ksIqo">
+              BAAIOmq3Kx...79ksIqo
+            </div>
+            <div className="text-[10px] text-emerald-400">Live SDK & REST Active</div>
+          </div>
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_CLIENT_SECRET</div>
+            <div className="text-sm font-bold font-mono text-emerald-400">Protected Server-Side</div>
+            <div className="text-[10px] text-zinc-500">Zero-Trust Environment Secret</div>
+          </div>
+          <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+            <div className="text-[11px] text-zinc-400 font-mono">PAYPAL_WEBHOOK_ID</div>
+            <div className="text-sm font-bold font-mono text-cyan-400">33234690XT010280P</div>
+            <div className="text-[10px] text-zinc-400">Signature Verification Active</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

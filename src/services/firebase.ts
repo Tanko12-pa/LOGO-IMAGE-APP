@@ -5,6 +5,10 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
   User as FirebaseUser,
 } from 'firebase/auth';
 import {
@@ -98,6 +102,44 @@ export function handleFirestoreError(
 }
 
 // 4. Authentication helpers
+export async function signUpWithEmail(email: string, password: string, name?: string): Promise<FirebaseUser> {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    if (name && name.trim()) {
+      try {
+        await updateProfile(userCredential.user, { displayName: name.trim() });
+      } catch (profileErr) {
+        console.warn('Could not update displayName on auth user:', profileErr);
+      }
+    }
+    await ensureUserProfileExists(userCredential.user, name?.trim());
+    return userCredential.user;
+  } catch (error) {
+    console.error('Email Sign-Up failed:', error);
+    throw error;
+  }
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<FirebaseUser> {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+    await ensureUserProfileExists(userCredential.user);
+    return userCredential.user;
+  } catch (error) {
+    console.error('Email Sign-In failed:', error);
+    throw error;
+  }
+}
+
+export async function resetPasswordForEmail(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+  } catch (error) {
+    console.error('Password reset failed:', error);
+    throw error;
+  }
+}
+
 export async function signInWithGoogle(): Promise<FirebaseUser | null> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
@@ -134,25 +176,69 @@ export function subscribeAuthState(callback: (user: FirebaseUser | null) => void
 }
 
 // 5. Database Profile & Document Synchronization
-export async function ensureUserProfileExists(user: FirebaseUser): Promise<void> {
+export async function ensureUserProfileExists(user: FirebaseUser, customName?: string): Promise<void> {
   const userPath = `users/${user.uid}`;
   try {
     const userDocRef = doc(db, 'users', user.uid);
     const snap = await getDoc(userDocRef);
     if (!snap.exists()) {
+      const now = Date.now();
+      const trialEnds = new Date(now + 7 * 86400000).toISOString();
+      const resolvedName = customName || user.displayName || (user.email ? user.email.split('@')[0] : 'Vision Creator');
+      const avatar = user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(resolvedName)}`;
       await setDoc(userDocRef, {
         email: user.email || 'user@logoimage.ai',
-        name: user.displayName || 'Vision Creator',
-        avatarUrl: user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-        plan: 'PRO',
-        creditsRemaining: 500,
+        name: resolvedName,
+        avatarUrl: avatar,
+        plan: 'TRIAL_7_DAYS',
+        subscriptionStatus: 'trial',
+        trialStartedAt: new Date(now).toISOString(),
+        trialEndsAt: trialEnds,
+        creditsRemaining: 150,
         creditsUsed: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date(now).toISOString(),
+        updatedAt: new Date(now).toISOString(),
       });
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, userPath);
+  }
+}
+
+export async function getUserProfileDoc(userId: string): Promise<Partial<UserProfile> | null> {
+  const userPath = `users/${userId}`;
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const snap = await getDoc(userDocRef);
+    if (!snap.exists()) return null;
+    return snap.data() as Partial<UserProfile>;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, userPath);
+    return null;
+  }
+}
+
+export function listenToUserProfileDoc(
+  userId: string,
+  onUpdate: (profile: Partial<UserProfile>) => void
+): () => void {
+  const userPath = `users/${userId}`;
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    return onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onUpdate(docSnap.data() as Partial<UserProfile>);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, userPath);
+      }
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, userPath);
+    return () => {};
   }
 }
 
@@ -253,6 +339,9 @@ export async function updateUserProfileDoc(userId: string, profile: Partial<User
     if (profile.name) updates.name = profile.name.slice(0, 128);
     if (profile.avatarUrl) updates.avatarUrl = profile.avatarUrl.slice(0, 1024);
     if (profile.plan) updates.plan = profile.plan;
+    if (profile.trialStartedAt) updates.trialStartedAt = profile.trialStartedAt;
+    if (profile.trialEndsAt) updates.trialEndsAt = profile.trialEndsAt;
+    if (profile.subscriptionStatus) updates.subscriptionStatus = profile.subscriptionStatus;
     if (profile.creditsRemaining !== undefined) updates.creditsRemaining = profile.creditsRemaining;
     if (profile.creditsUsed !== undefined) updates.creditsUsed = profile.creditsUsed;
 

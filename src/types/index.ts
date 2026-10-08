@@ -208,6 +208,9 @@ export interface UserProfile {
   avatarUrl: string;
   plan: 'FREE' | 'PRO' | 'BUSINESS' | 'TRIAL_7_DAYS' | 'MONTHLY_19_99' | 'YEARLY_199_99';
   subscription?: SubscriptionInfo;
+  trialStartedAt?: string;
+  trialEndsAt?: string;
+  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'canceled';
   creditsRemaining: number;
   creditsUsed: number;
   biometricRegistered: boolean;
