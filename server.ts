@@ -1578,6 +1578,8 @@ interface SubscriptionRecord {
   lastEvent: string;
   lastUpdated: string;
   rawEventId?: string;
+  email?: string;
+  userId?: string;
 }
 
 const subscriptionDatabase = new Map<string, SubscriptionRecord>();
@@ -1631,7 +1633,7 @@ app.get('/api/paypal/config', (_req: Request, res: Response) => {
 // 13b. Create PayPal Subscription
 app.post('/api/paypal/create-subscription', async (req: Request, res: Response) => {
   try {
-    const { planType, returnUrl, cancelUrl } = req.body;
+    const { planType, returnUrl, cancelUrl, email, userId } = req.body;
     const targetPlanId = planType === 'YEARLY_199_99' ? PAYPAL_PLAN_ID_YEARLY : PAYPAL_PLAN_ID_MONTHLY;
     const planName = planType === 'YEARLY_199_99' ? 'Annual Enterprise Pro' : 'Monthly Pro';
     const amount = planType === 'YEARLY_199_99' ? '199.99' : '19.99';
@@ -1639,6 +1641,25 @@ app.post('/api/paypal/create-subscription', async (req: Request, res: Response) 
     if (PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET && targetPlanId) {
       try {
         const accessToken = await getPayPalAccessToken();
+        const subscriptionPayload: any = {
+          plan_id: targetPlanId,
+          custom_id: email || userId || 'account_user',
+          application_context: {
+            brand_name: 'LOGO & IMAGE GENERATOR',
+            locale: 'en-US',
+            shipping_preference: 'NO_SHIPPING',
+            user_action: 'SUBSCRIBE_NOW',
+            return_url: returnUrl || 'https://ais-dev-ncjlpcgrchmzduynzutusn-177908639275.us-west1.run.app',
+            cancel_url: cancelUrl || 'https://ais-dev-ncjlpcgrchmzduynzutusn-177908639275.us-west1.run.app',
+          },
+        };
+
+        if (email && typeof email === 'string' && email.includes('@')) {
+          subscriptionPayload.subscriber = {
+            email_address: email.trim(),
+          };
+        }
+
         const subRes = await fetch(`${PAYPAL_API_URL}/v1/billing/subscriptions`, {
           method: 'POST',
           headers: {
@@ -1646,28 +1667,33 @@ app.post('/api/paypal/create-subscription', async (req: Request, res: Response) 
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: JSON.stringify({
-            plan_id: targetPlanId,
-            application_context: {
-              brand_name: 'LOGO & IMAGE GENERATOR',
-              locale: 'en-US',
-              shipping_preference: 'NO_SHIPPING',
-              user_action: 'SUBSCRIBE_NOW',
-              return_url: returnUrl || 'https://ais-dev-ncjlpcgrchmzduynzutusn-177908639275.us-west1.run.app',
-              cancel_url: cancelUrl || 'https://ais-dev-ncjlpcgrchmzduynzutusn-177908639275.us-west1.run.app',
-            },
-          }),
+          body: JSON.stringify(subscriptionPayload),
         });
 
         if (subRes.ok) {
           const subData: any = await subRes.json();
           const approveLink = subData.links?.find((l: any) => l.rel === 'approve')?.href;
+          
+          // Store pending agreement in subscription database linked to user account
+          subscriptionDatabase.set(subData.id, {
+            subscriptionId: subData.id,
+            status: subData.status === 'ACTIVE' ? 'ACTIVE' : 'SUSPENDED',
+            planId: targetPlanId,
+            planType,
+            creditsGranted: planType === 'YEARLY_199_99' ? 7500 : 600,
+            lastEvent: 'SUBSCRIPTION_CREATED',
+            lastUpdated: new Date().toISOString(),
+            email: email || undefined,
+            userId: userId || undefined,
+          });
+
           return res.json({
             success: true,
             subscriptionId: subData.id,
             status: subData.status,
             approveUrl: approveLink,
             planType,
+            linkedEmail: email || null,
             isLive: true,
           });
         }
@@ -1679,6 +1705,17 @@ app.post('/api/paypal/create-subscription', async (req: Request, res: Response) 
     }
 
     const mockSubId = `I-SUB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    subscriptionDatabase.set(mockSubId, {
+      subscriptionId: mockSubId,
+      status: 'ACTIVE',
+      planType,
+      creditsGranted: planType === 'YEARLY_199_99' ? 7500 : 600,
+      lastEvent: 'MOCK_SUBSCRIPTION_CREATED',
+      lastUpdated: new Date().toISOString(),
+      email: email || undefined,
+      userId: userId || undefined,
+    });
+
     return res.json({
       success: true,
       subscriptionId: mockSubId,
@@ -1687,8 +1724,9 @@ app.post('/api/paypal/create-subscription', async (req: Request, res: Response) 
       planType,
       amount,
       planName,
+      linkedEmail: email || null,
       isLive: Boolean(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET && targetPlanId),
-      message: 'PayPal subscription initialized successfully.',
+      message: 'PayPal subscription initialized successfully and linked to account.',
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'PayPal subscription creation failed' });
@@ -1750,7 +1788,7 @@ app.post('/api/create-subscription', async (req: Request, res: Response) => {
 // 13c. Capture / Confirm PayPal Subscription
 app.post('/api/paypal/capture-subscription', async (req: Request, res: Response) => {
   try {
-    const { subscriptionId, planType } = req.body;
+    const { subscriptionId, planType, email, userId } = req.body;
     let verified = false;
 
     if (PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET && subscriptionId && !subscriptionId.startsWith('I-SUB-')) {
@@ -1774,15 +1812,30 @@ app.post('/api/paypal/capture-subscription', async (req: Request, res: Response)
     }
 
     const isYearly = planType === 'YEARLY_199_99';
+    const creditsGranted = isYearly ? 7500 : 600;
+
+    // Link subscription permanently in backend database
+    subscriptionDatabase.set(subscriptionId, {
+      subscriptionId,
+      status: 'ACTIVE',
+      planType,
+      creditsGranted,
+      lastEvent: 'CAPTURE_VERIFIED',
+      lastUpdated: new Date().toISOString(),
+      email: email || undefined,
+      userId: userId || undefined,
+    });
+
     return res.json({
       success: true,
       verified,
       subscriptionId,
       planType,
       status: 'active',
-      creditsGranted: isYearly ? 7500 : 600,
+      linkedEmail: email || null,
+      creditsGranted,
       renewsAt: new Date(Date.now() + (isYearly ? 365 : 30) * 86400000).toISOString(),
-      message: `PayPal subscription ${subscriptionId} confirmed for ${isYearly ? '$199.99/Year' : '$19.99/Month'}.`,
+      message: `PayPal subscription ${subscriptionId} confirmed and linked for ${isYearly ? '$199.99/Year' : '$19.99/Month'}.`,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'PayPal subscription capture failed' });

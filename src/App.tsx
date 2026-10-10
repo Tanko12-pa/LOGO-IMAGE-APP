@@ -571,6 +571,8 @@ export default function App() {
               {currentView === 'billing' && (
                 <BillingView
                   userProfile={userProfile}
+                  onOpenAuthModal={handleOpenAuthModal}
+                  onNavigate={handleSelectView}
                   onUpdatePlan={(plan) => {
                     let newCredits = userProfile.creditsRemaining;
                     let planLabel = 'Plan';

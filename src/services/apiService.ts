@@ -568,13 +568,19 @@ export const apiService = {
     }
   },
 
-  async createPayPalSubscription(planType: 'MONTHLY_19_99' | 'YEARLY_199_99') {
+  async createPayPalSubscription(
+    planType: 'MONTHLY_19_99' | 'YEARLY_199_99',
+    email?: string,
+    userId?: string
+  ) {
     try {
       const res = await fetch('/api/paypal/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           planType,
+          email: email || undefined,
+          userId: userId || undefined,
           returnUrl: window.location.href,
           cancelUrl: window.location.href,
         }),
@@ -589,18 +595,19 @@ export const apiService = {
         status: 'APPROVAL_PENDING',
         approveUrl: `https://www.paypal.com/checkoutnow?token=SIMULATED_${Date.now()}`,
         planType,
+        linkedEmail: email || null,
         isLive: false,
       };
     }
   },
 
   // Direct caller matching user's /api/create-subscription route
-  async createDirectSubscription(planType: 'monthly' | 'yearly') {
+  async createDirectSubscription(planType: 'monthly' | 'yearly', email?: string) {
     try {
       const res = await fetch('/api/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planType }),
+        body: JSON.stringify({ planType, email }),
       });
       if (!res.ok) throw new Error(`Create subscription error ${res.status}`);
       return await res.json();
@@ -612,12 +619,22 @@ export const apiService = {
     }
   },
 
-  async capturePayPalSubscription(subscriptionId: string, planType: string) {
+  async capturePayPalSubscription(
+    subscriptionId: string,
+    planType: string,
+    email?: string,
+    userId?: string
+  ) {
     try {
       const res = await fetch('/api/paypal/capture-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscriptionId, planType }),
+        body: JSON.stringify({
+          subscriptionId,
+          planType,
+          email: email || undefined,
+          userId: userId || undefined,
+        }),
       });
       if (!res.ok) throw new Error(`PayPal capture error ${res.status}`);
       return await res.json();
@@ -630,6 +647,7 @@ export const apiService = {
         subscriptionId,
         planType,
         status: 'active',
+        linkedEmail: email || null,
         creditsGranted: isYearly ? 7500 : 600,
         renewsAt: new Date(Date.now() + (isYearly ? 365 : 30) * 86400000).toISOString(),
         message: `Subscription activated for ${isYearly ? '$199.99/Year' : '$19.99/Month'}.`,

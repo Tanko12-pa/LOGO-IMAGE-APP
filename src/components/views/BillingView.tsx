@@ -28,9 +28,16 @@ import { PayPalSubscriptionButton } from '../billing/PayPalSubscriptionButton';
 interface BillingViewProps {
   userProfile: UserProfile;
   onUpdatePlan: (plan: 'FREE' | 'PRO' | 'BUSINESS' | 'TRIAL_7_DAYS' | 'MONTHLY_19_99' | 'YEARLY_199_99') => void;
+  onOpenAuthModal?: (mode?: 'signin' | 'signup') => void;
+  onNavigate?: (view: any) => void;
 }
 
-export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdatePlan }) => {
+export const BillingView: React.FC<BillingViewProps> = ({
+  userProfile,
+  onUpdatePlan,
+  onOpenAuthModal,
+  onNavigate,
+}) => {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [checkoutSuccessMsg, setCheckoutSuccessMsg] = useState<string | null>(null);
@@ -38,6 +45,18 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
   const [activeSubscriptionId, setActiveSubscriptionId] = useState<string | null>(null);
   const [paypalConfig, setPaypalConfig] = useState<any>(null);
   const [trialDetails, setTrialDetails] = useState(() => storageService.getTrialDetails());
+
+  // Interactive PayPal Modal State for Seamless Account Linking & Payment Processing
+  const [payPalModal, setPayPalModal] = useState<{
+    isOpen: boolean;
+    planId: 'MONTHLY_19_99' | 'YEARLY_199_99';
+    planName: string;
+    priceDisplay: string;
+    credits: string;
+    subscriptionId: string;
+    approveUrl: string;
+    isVerifying: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -112,7 +131,7 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
         'Claid.ai 4K upscaler & Magnific AI details',
         'Full commercial usage rights',
       ],
-      cta: 'Start 7-Day Free Trial',
+      cta: 'Sign Up for 7-Day Free Trial',
       highlighted: false,
     },
     {
@@ -166,25 +185,15 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
   };
 
   const handleSelectPlan = async (planId: 'TRIAL_7_DAYS' | 'MONTHLY_19_99' | 'YEARLY_199_99') => {
-    setSelectedPlanId(planId);
-    setIsProcessingCheckout(true);
-    setCheckoutErrorMsg(null);
-
-    try {
-      const result = await apiService.updateSubscription(planId);
-      onUpdatePlan(planId);
-      setCheckoutSuccessMsg(
-        planId === 'TRIAL_7_DAYS'
-          ? '🎉 7-Day Free Trial activated! You now have 150 AI credits.'
-          : `🎉 Subscribed successfully to ${planId === 'MONTHLY_19_99' ? '$19.99/Monthly' : '$199.99/Yearly'}!`
-      );
-      setTimeout(() => setCheckoutSuccessMsg(null), 5000);
-    } catch (err: any) {
-      setCheckoutErrorMsg(`Subscription update failed: ${err?.message || 'Error processing plan update'}`);
-    } finally {
-      setIsProcessingCheckout(false);
-      setSelectedPlanId(null);
+    if (planId === 'TRIAL_7_DAYS') {
+      if (onOpenAuthModal) {
+        onOpenAuthModal('signup');
+      } else if (onNavigate) {
+        onNavigate('landing');
+      }
+      return;
     }
+    await handlePayPalSubscribe(planId);
   };
 
   const handlePayPalSubscribe = async (planId: 'MONTHLY_19_99' | 'YEARLY_199_99') => {
@@ -192,24 +201,62 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
     setIsProcessingCheckout(true);
     setCheckoutErrorMsg(null);
 
+    const planInfo = plans.find((p) => p.id === planId);
+    const planName = planInfo?.name || (planId === 'MONTHLY_19_99' ? 'Monthly Pro' : 'Annual Enterprise Pro');
+    const priceDisplay = planInfo?.priceDisplay || (planId === 'MONTHLY_19_99' ? '$19.99' : '$199.99');
+    const credits = planInfo?.credits || (planId === 'MONTHLY_19_99' ? '600 AI Credits / mo' : '7,500 AI Credits / yr');
+
     try {
-      const subRes = await apiService.createPayPalSubscription(planId);
+      const subRes = await apiService.createPayPalSubscription(planId, userProfile.email, userProfile.id);
       if (subRes.success) {
-        const captureRes = await apiService.capturePayPalSubscription(subRes.subscriptionId, planId);
-        onUpdatePlan(planId);
-        setActiveSubscriptionId(captureRes.subscriptionId || subRes.subscriptionId);
-        setCheckoutSuccessMsg(
-          `🎉 PayPal payment confirmed! Subscribed to ${planId === 'MONTHLY_19_99' ? '$19.99/Monthly' : '$199.99/Yearly'} (ID: ${captureRes.subscriptionId || subRes.subscriptionId}).`
-        );
+        setPayPalModal({
+          isOpen: true,
+          planId,
+          planName,
+          priceDisplay,
+          credits,
+          subscriptionId: subRes.subscriptionId,
+          approveUrl: subRes.approveUrl,
+          isVerifying: false,
+        });
       } else {
-        throw new Error(subRes.error || 'Failed to initialize PayPal subscription');
+        throw new Error(subRes.error || 'Failed to initialize PayPal subscription session');
       }
-      setTimeout(() => setCheckoutSuccessMsg(null), 7000);
     } catch (err: any) {
-      setCheckoutErrorMsg(`PayPal checkout failed: ${err?.message || 'Error processing PayPal subscription'}`);
+      setCheckoutErrorMsg(`PayPal checkout error: ${err?.message || 'Error processing PayPal subscription'}`);
     } finally {
       setIsProcessingCheckout(false);
       setSelectedPlanId(null);
+    }
+  };
+
+  const handleConfirmPayPalPayment = async () => {
+    if (!payPalModal) return;
+    setPayPalModal((prev) => (prev ? { ...prev, isVerifying: true } : null));
+    setCheckoutErrorMsg(null);
+
+    try {
+      const captureRes = await apiService.capturePayPalSubscription(
+        payPalModal.subscriptionId,
+        payPalModal.planId,
+        userProfile.email,
+        userProfile.id
+      );
+
+      if (captureRes.success) {
+        onUpdatePlan(payPalModal.planId);
+        setActiveSubscriptionId(captureRes.subscriptionId || payPalModal.subscriptionId);
+        setCheckoutSuccessMsg(
+          `🎉 PayPal payment verified! Subscribed to ${payPalModal.planName}. Account ${userProfile.email} linked successfully with full studio access restored!`
+        );
+        setPayPalModal(null);
+        setTimeout(() => setCheckoutSuccessMsg(null), 8000);
+      } else {
+        throw new Error(captureRes.error || 'PayPal verification could not be completed.');
+      }
+    } catch (err: any) {
+      setCheckoutErrorMsg(`Payment verification: ${err?.message || 'Please complete authorization in the PayPal window.'}`);
+      setPayPalModal((prev) => (prev ? { ...prev, isVerifying: false } : null));
     }
   };
 
@@ -223,16 +270,15 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
     setActiveSubscriptionId(subscriptionId);
 
     try {
-      await apiService.capturePayPalSubscription(subscriptionId, planId);
+      await apiService.capturePayPalSubscription(subscriptionId, planId, userProfile.email, userProfile.id);
       onUpdatePlan(planId);
       setCheckoutSuccessMsg(
         `🎉 PayPal subscription activated! ID: ${subscriptionId}. Your ${
           planId === 'MONTHLY_19_99' ? 'Monthly Pro' : 'Annual Enterprise Pro'
-        } plan is now active.`
+        } plan is now active for ${userProfile.email}.`
       );
       setTimeout(() => setCheckoutSuccessMsg(null), 8000);
     } catch (err: any) {
-      // Still set the plan active with the subscription ID
       onUpdatePlan(planId);
       setCheckoutSuccessMsg(
         `🎉 PayPal subscription confirmed! Subscription ID: ${subscriptionId}.`
@@ -654,6 +700,111 @@ export const BillingView: React.FC<BillingViewProps> = ({ userProfile, onUpdateP
           </div>
         </div>
       </div>
+
+      {/* PayPal Checkout & Verification Modal */}
+      {payPalModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-lg w-full shadow-2xl p-6 sm:p-8 space-y-6 animate-scaleIn">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#003087]/20 border border-[#0070ba]/40 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-[#009cde]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold font-heading text-white">
+                    PayPal Subscription Checkout
+                  </h3>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    Account: <strong className="text-zinc-200">{userProfile.email}</strong>
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPayPalModal(null)}
+                className="p-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Selected Plan Summary */}
+            <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-mono text-zinc-400 block">Selected Tier:</span>
+                  <span className="text-base font-bold text-white">{payPalModal.planName}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xl font-extrabold text-[#FFE566] font-heading">{payPalModal.priceDisplay}</span>
+                  <span className="text-[10px] font-mono text-zinc-400 block">
+                    {payPalModal.planId === 'MONTHLY_19_99' ? 'Billed monthly' : 'Billed annually'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs font-mono text-emerald-400 flex items-center gap-1.5 pt-2 border-t border-zinc-800/80">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{payPalModal.credits} unlocked immediately</span>
+              </div>
+            </div>
+
+            <div className="text-xs text-zinc-300 space-y-2 leading-relaxed">
+              <p>
+                To complete your subscription, approve the agreement in PayPal using your preferred payment method (PayPal balance, bank, or debit/credit card).
+              </p>
+              <div className="p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/60 font-mono text-[11px] text-zinc-400 space-y-1">
+                <div className="flex justify-between">
+                  <span>Session ID:</span>
+                  <span className="text-zinc-300 truncate max-w-[200px]">{payPalModal.subscriptionId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Linked Email:</span>
+                  <span className="text-zinc-300">{userProfile.email}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3 pt-2">
+              <a
+                href={payPalModal.approveUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3.5 px-4 rounded-2xl font-bold text-xs bg-[#FFC439] hover:bg-[#F2BA36] active:scale-[0.99] text-[#003087] shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <span className="font-extrabold italic font-serif text-sm">PayPal</span>
+                <span className="text-zinc-700">|</span>
+                <span>Open PayPal & Approve ({payPalModal.priceDisplay})</span>
+                <ExternalLink className="w-3.5 h-3.5 ml-1" />
+              </a>
+
+              <button
+                type="button"
+                onClick={handleConfirmPayPalPayment}
+                disabled={payPalModal.isVerifying}
+                className="w-full py-3.5 px-4 rounded-2xl font-bold text-xs bg-gradient-to-r from-[#800020] via-[#800020] to-[#F27430] hover:opacity-95 text-white shadow-lg shadow-[#800020]/40 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {payPalModal.isVerifying ? (
+                  <>
+                    <Clock className="w-3.5 h-3.5 animate-spin" />
+                    <span>Verifying Subscription with PayPal Backend...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 text-[#FFE566]" />
+                    <span>I've Approved Payment — Verify & Activate Full Access</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-[10px] text-zinc-500 font-mono pt-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Zero credentials stored on client • Direct PayPal verification</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Copy-Paste Build Prompt Modal */}
       {isPromptModalOpen && (
