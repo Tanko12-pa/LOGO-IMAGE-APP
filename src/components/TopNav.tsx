@@ -29,6 +29,7 @@ import {
   Clock,
   Lock,
   Mail,
+  Command,
 } from 'lucide-react';
 import { NavView, NotificationItem, UserProfile, SyncStatus } from '../types';
 
@@ -38,6 +39,7 @@ interface TopNavProps {
   onOpenAssistant: () => void;
   onStartTour: () => void;
   onLockBiometric: () => void;
+  onOpenCommandPalette?: () => void;
   userProfile: UserProfile;
   trialDetails?: {
     isPaid: boolean;
@@ -69,6 +71,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenAssistant,
   onStartTour,
   onLockBiometric,
+  onOpenCommandPalette,
   userProfile,
   trialDetails,
   notifications,
@@ -171,21 +174,35 @@ export const TopNav: React.FC<TopNavProps> = ({
         <div className="relative w-full">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
           <input
+            id="global-search-input"
             type="text"
             value={searchQuery}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Search logos, images, brand kits, prompts & templates..."
-            className="w-full pl-10 pr-4 py-2 bg-zinc-900/90 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#F27430] focus:ring-1 focus:ring-[#F27430]/30 transition-all font-sans"
+            placeholder="Search logos, images, brand kits, prompts & templates... (Ctrl+K for command menu)"
+            className="w-full pl-10 pr-20 py-2 bg-zinc-900/90 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#F27430] focus:ring-1 focus:ring-[#F27430]/30 transition-all font-sans"
           />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => onSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs"
-            >
-              Clear
-            </button>
-          )}
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => onSearch('')}
+                className="text-zinc-500 hover:text-white text-xs px-1"
+              >
+                Clear
+              </button>
+            ) : null}
+            {onOpenCommandPalette && (
+              <button
+                type="button"
+                onClick={onOpenCommandPalette}
+                title="Command Palette & Keyboard Shortcuts (Ctrl+K)"
+                className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/80 text-[10px] font-mono text-[#FFE566] cursor-pointer transition-colors"
+              >
+                <Command className="w-2.5 h-2.5 text-[#F27430]" />
+                <span>Ctrl+K</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

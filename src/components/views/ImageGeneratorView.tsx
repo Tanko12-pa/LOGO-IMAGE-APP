@@ -728,6 +728,15 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undoStack, redoStack, taskQueue, batchStyle]);
 
+  // Listen to global Ctrl+G event
+  useEffect(() => {
+    const handleGlobalTrigger = () => {
+      handleGenerateSingle();
+    };
+    window.addEventListener('logmage:trigger-generate', handleGlobalTrigger);
+    return () => window.removeEventListener('logmage:trigger-generate', handleGlobalTrigger);
+  }, [prompt, selectedFoundationModel, aspectRatio, inImageTypography, style, useBrandKit, vectorMode, activeBrandKit]);
+
   // Sequence manipulation handlers with automatic history recording
   const handleMoveTask = (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;
@@ -2122,6 +2131,9 @@ export const ImageGeneratorView: React.FC<ImageGeneratorViewProps> = ({
                 <>
                   <Sparkles className="w-4 h-4 text-[#FFE566]" />
                   <span>Generate High-Fidelity Images</span>
+                  <kbd className="hidden sm:inline-flex px-1.5 py-0.5 rounded bg-black/40 border border-white/20 text-[10px] font-mono text-[#FFE566] ml-1">
+                    Ctrl+G
+                  </kbd>
                 </>
               )}
             </button>

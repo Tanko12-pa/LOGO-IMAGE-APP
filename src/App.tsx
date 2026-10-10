@@ -20,6 +20,7 @@ import { AdminView } from './components/views/AdminView';
 import { SettingsFeedbackView } from './components/views/SettingsFeedbackView';
 import { PublicLandingView } from './components/views/PublicLandingView';
 import { AuthModal } from './components/AuthModal';
+import { CommandPaletteModal } from './components/CommandPaletteModal';
 import {
   BrandKit,
   DesignItem,
@@ -60,6 +61,8 @@ export default function App() {
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signup');
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [computerVisionMode, setComputerVisionMode] = useState<'single' | 'batch'>('single');
 
   const handleOpenAuthModal = (mode: 'signin' | 'signup' = 'signup') => {
     setAuthModalMode(mode);
@@ -419,6 +422,96 @@ export default function App() {
     setCurrentView(view);
   };
 
+  // Trigger Instant Generation based on current view or navigate to generator
+  const handleTriggerGenerate = () => {
+    if (currentView === 'logo-generator' || currentView === 'image-generator') {
+      window.dispatchEvent(new CustomEvent('logmage:trigger-generate'));
+      storageService.addNotification({
+        title: 'Instant Generation Triggered',
+        message: 'Running generation sequence via Ctrl+G shortcut.',
+        type: 'info',
+      });
+      setNotifications(storageService.getNotifications());
+    } else {
+      handleSelectView('logo-generator');
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('logmage:trigger-generate'));
+      }, 250);
+    }
+  };
+
+  // Global Keyboard Shortcuts System (Ctrl+K, Ctrl+G, Ctrl+B, Ctrl+/, Ctrl+0-5)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in input, textarea, or contentEditable
+      const target = e.target as HTMLElement;
+      const isInput =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable;
+
+      // Allow Ctrl+K anywhere to summon command palette
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
+
+      // If typing in input, do not hijack other shortcuts
+      if (isInput) return;
+
+      // Ctrl+G: Instant Generate
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        handleTriggerGenerate();
+        return;
+      }
+
+      // Ctrl+B: Batch Vision Process
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setComputerVisionMode('batch');
+        handleSelectView('computer-vision');
+        return;
+      }
+
+      // Ctrl+/: Focus Global Search
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        const searchEl = document.getElementById('global-search-input');
+        searchEl?.focus();
+        return;
+      }
+
+      // Ctrl+0 to Ctrl+5 View Quick Jump
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+        if (e.key === '0') {
+          e.preventDefault();
+          handleSelectView('dashboard');
+        } else if (e.key === '1') {
+          e.preventDefault();
+          handleSelectView('logo-generator');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          handleSelectView('image-generator');
+        } else if (e.key === '3') {
+          e.preventDefault();
+          setComputerVisionMode('single');
+          handleSelectView('computer-vision');
+        } else if (e.key === '4') {
+          e.preventDefault();
+          handleSelectView('a2a-judge');
+        } else if (e.key === '5') {
+          e.preventDefault();
+          handleSelectView('video-motion');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentView]);
+
   // Search filter across designs
   const displayedDesigns = searchQuery
     ? designs.filter(
@@ -466,6 +559,7 @@ export default function App() {
               onOpenAssistant={() => setIsAssistantOpen(true)}
               onStartTour={() => setIsTourOpen(true)}
               onLockBiometric={handleLockBiometric}
+              onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
               userProfile={userProfile}
               trialDetails={trialDetails}
               notifications={notifications}
@@ -516,6 +610,7 @@ export default function App() {
 
               {currentView === 'computer-vision' && (
                 <ComputerVisionView
+                  initialMode={computerVisionMode}
                   onNavigate={(view) => setCurrentView(view)}
                 />
               )}
@@ -675,6 +770,18 @@ export default function App() {
         isOpen={isTourOpen}
         onClose={() => setIsTourOpen(false)}
         onNavigate={(view) => setCurrentView(view)}
+      />
+
+      {/* Power-User Keyboard Command Palette (Ctrl+K) */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={(view) => handleSelectView(view)}
+        onTriggerGenerate={handleTriggerGenerate}
+        onOpenBatchVision={() => {
+          setComputerVisionMode('batch');
+          handleSelectView('computer-vision');
+        }}
       />
     </div>
   );

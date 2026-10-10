@@ -21,14 +21,17 @@ import {
   SwitchCamera,
   Crosshair,
   Info,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { NavView, VisionAnalysisResult, DetectedObject } from '../../types';
 import { apiService } from '../../services/apiService';
 import { storageService } from '../../services/storageService';
+import { BatchVisionProcessor } from './BatchVisionProcessor';
 
 interface ComputerVisionViewProps {
   onNavigate: (view: NavView) => void;
   onApplyPrompt?: (prompt: string, targetView: 'logo-generator' | 'image-generator' | 'a2a-judge' | 'video-motion') => void;
+  initialMode?: 'single' | 'batch';
 }
 
 const PRESET_SAMPLES = [
@@ -61,7 +64,9 @@ const PRESET_SAMPLES = [
 export const ComputerVisionView: React.FC<ComputerVisionViewProps> = ({
   onNavigate,
   onApplyPrompt,
+  initialMode = 'single',
 }) => {
+  const [activeTab, setActiveTab] = useState<'single' | 'batch'>(initialMode);
   const [selectedImage, setSelectedImage] = useState<string>(PRESET_SAMPLES[0].url);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<VisionAnalysisResult | null>(null);
@@ -72,6 +77,12 @@ export const ComputerVisionView: React.FC<ComputerVisionViewProps> = ({
   const [isLiveCameraActive, setIsLiveCameraActive] = useState(false);
   const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment'>('environment');
   const [cameraError, setCameraError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialMode) {
+      setActiveTab(initialMode);
+    }
+  }, [initialMode]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -254,8 +265,66 @@ export const ComputerVisionView: React.FC<ComputerVisionViewProps> = ({
         </div>
       )}
 
-      {/* Preset Samples Selector */}
-      <div className="space-y-2">
+      {/* Mode Switcher Tabs */}
+      <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+        <div className="flex items-center gap-2 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab('single')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'single'
+                ? 'bg-gradient-to-r from-[#800020] to-[#F27430] text-white shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <ScanEye className="w-3.5 h-3.5 text-[#FFE566]" />
+            <span>Interactive AR HUD Studio</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('batch')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'batch'
+                ? 'bg-gradient-to-r from-[#800020] to-[#F27430] text-white shadow-md'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#FFE566]" />
+            <span>Batch Process & Spreadsheets</span>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-950 text-[#FFE566] border border-zinc-800">
+              CSV
+            </span>
+          </button>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+          <span>Shortcuts:</span>
+          <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">Ctrl+B</kbd>
+          <span>Batch</span>
+          <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">Ctrl+K</kbd>
+          <span>Command</span>
+        </div>
+      </div>
+
+      {activeTab === 'batch' ? (
+        <BatchVisionProcessor
+          onSelectImageForView={(dataUrl, res) => {
+            setSelectedImage(dataUrl);
+            if (res) {
+              setAnalysisResult(res);
+              if (res.detectedObjects?.length > 0) {
+                setSelectedObjectId(res.detectedObjects[0].id);
+              }
+            }
+            setActiveTab('single');
+          }}
+          onNavigate={onNavigate}
+        />
+      ) : (
+        <>
+          {/* Preset Samples Selector */}
+          <div className="space-y-2">
         <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
           Quick Test Sample Images:
         </span>
@@ -590,6 +659,8 @@ export const ComputerVisionView: React.FC<ComputerVisionViewProps> = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

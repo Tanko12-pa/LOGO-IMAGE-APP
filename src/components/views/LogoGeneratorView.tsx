@@ -131,6 +131,15 @@ export const LogoGeneratorView: React.FC<LogoGeneratorViewProps> = ({
     }
   };
 
+  // Listen to global Ctrl+G event
+  useEffect(() => {
+    const handleGlobalTrigger = () => {
+      handleGenerate();
+    };
+    window.addEventListener('logmage:trigger-generate', handleGlobalTrigger);
+    return () => window.removeEventListener('logmage:trigger-generate', handleGlobalTrigger);
+  }, [brandName, industry, selectedStyle, symbolPreference, typographyPreference, primaryColor, accentColor, highlightColor, conceptCount]);
+
   const handleGenerate = async () => {
     if (!brandName.trim()) return;
     setIsGenerating(true);
@@ -499,6 +508,9 @@ export const LogoGeneratorView: React.FC<LogoGeneratorViewProps> = ({
               <>
                 <Sparkles className="w-4 h-4 text-[#FFE566]" />
                 <span>Generate {conceptCount} Vector {conceptCount === 1 ? 'Concept' : 'Concepts'}</span>
+                <kbd className="hidden sm:inline-flex px-1.5 py-0.5 rounded bg-black/40 border border-white/20 text-[10px] font-mono text-[#FFE566] ml-1">
+                  Ctrl+G
+                </kbd>
               </>
             )}
           </button>
